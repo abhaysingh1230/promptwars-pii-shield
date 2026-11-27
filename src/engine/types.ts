@@ -201,4 +201,5 @@ export interface SanitizeResult {
   isCsv: boolean
   csvRowCount?: number
   csvColCount?: number
+  csvParseError?: string
 }

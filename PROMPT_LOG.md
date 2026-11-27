@@ -2,59 +2,40 @@
 
 **Challenge Track:** Cybersecurity & Data Privacy  
 **Project:** `promptwars-pii-shield`  
-**Core Constraint:** 100% client-side browser execution with zero external server transmission.
+**Core Constraint:** Browser-only execution with zero external server transmission.
 
 ---
 
 ## Prompt Iteration 1 — Architecture & Zero-Server Privacy Boundary
 **Prompt Goal:**  
-> Design a browser-based data sanitization web app using Vite, React, TypeScript, and Tailwind CSS that processes raw pasted text and uploaded `.txt`/`.csv` files entirely in browser memory without sending any user payload to external APIs or backends.
+> Design a browser-only PII sanitization workstation using Vite, React, TypeScript, and Tailwind CSS that processes pasted text and `.txt`/`.csv` files locally without transmitting data externally.
 
-**Key Decisions & Guardrails:**
-- Rejected external LLM API calls on raw input to guarantee compliance with the zero-server privacy requirement.
-- Designed a modular pure-TypeScript engine (`src/engine/`) with deterministic O(n) scanning and safe React JSX rendering (zero `dangerouslySetInnerHTML`).
-- Enforced `connect-src 'none'` in production Nginx/Firebase CSP headers so browsers physically block any outbound `fetch`/`XHR` calls.
+**Outcome:**  
+- Built modular pure-TypeScript detection/redaction engine (`src/engine/`) with Web Worker execution (`src/workers/sanitizer.worker.ts`) and pure JSX diff rendering (zero `dangerouslySetInnerHTML`).
 
 ---
 
-## Prompt Iteration 2 — Multi-PII Detection & Luhn False-Positive Filtering
+## Prompt Iteration 2 — Multi-PII Detection, Luhn & Edge-Case Hardening
 **Prompt Goal:**  
-> Implement accurate client-side detectors for Emails, Phone Numbers (Indian +91 & international), IPv4/IPv6 addresses, Indian PAN (`ABCDE1234F`), Indian Aadhaar (12-digit UID format), and Credit Card numbers with Luhn mod-10 validation to eliminate false positives on random 16-digit strings.
+> Support Emails, Indian & international phones (`+44`, `+1`, `+91`), IPv4/IPv6, uppercase & mixed-case Indian PAN, Aadhaar, and Luhn-validated Credit Cards with Unicode boundaries and explicit false-positive telemetry.
 
-**Refinements Made:**
-- Added `luhnCheck()` in `src/engine/validators.ts` rejecting non-Luhn 13–19 digit sequences and identical-digit sequences (`0000...`).
-- Discovered during unit testing (`src/engine/__tests__/engine.test.ts`) that a naive 12-digit Aadhaar regex matched the first 12 digits of a 16-digit hyphenated order ID (`1234-5678-9012-3456`). Fixed via strict lookahead/lookbehind boundaries (`(?<!\d[\s-])(?<!\d)...(?![\s-]?\d)`) and priority-based overlap resolution (`resolveOverlaps`).
-- Added Verhoeff checksum confidence scoring for Aadhaar, entity-type decoding for PAN, and software-version filtering (`v1.2.3.4`) for IPv4.
+**Outcome:**  
+- Implemented Luhn mod-10 diagnostics, Verhoeff checksum labeling (`Format-matched · checksum unverified` for synthetic test IDs), mixed-case PAN entity-code validation, compressed IPv6 support, and Unicode boundary lookbehinds.
 
 ---
 
-## Prompt Iteration 3 — Three Redaction Modes & CSV Structure Preservation
+## Prompt Iteration 3 — CSV Strict Parsing, Formula Escaping & 3 Redaction Modes
 **Prompt Goal:**  
-> Support Full Mask (`[REDACTED]`), Partial Mask (`XXXX-XXXX-1234`, `a***@domain.com`), and Consistent Pseudonymization (`EMAIL_01`, `CARD_01`, `PHONE_01`) while preserving RFC-4180 CSV structure across rows and columns.
+> Support Full mask, Partial mask, and Pseudonymization across plain text and CSV tables while detecting malformed CSV quotes and preventing spreadsheet formula injection.
 
-**Key Implementation:**
-- Built `PseudonymRegistry` (`src/engine/redactors.ts`) with canonical key normalization (`Alice@Corp.com` and `alice@corp.com` -> `EMAIL_01`; `+91 98765 43210` and `9876543210` -> `PHONE_01`).
-- Built `parseCsv()` / `sanitizeCsvDocument()` (`src/engine/csv.ts`) sharing one `PseudonymRegistry` across all cells in a CSV table.
+**Outcome:**  
+- Added `parseCsvStrict()` for explicit quote error reporting, `escapeCsvFormula()` on sanitized CSV exports, and `PseudonymRegistry` shared across multiline CSV cells.
 
 ---
 
-## Prompt Iteration 4 — Accessible Side-by-Side Diff UI, Testing & Cloud Run
+## Prompt Iteration 4 — AppSec Audit Hardening & Workstation UX
 **Prompt Goal:**  
-> Build a high-contrast accessible UI featuring a 1-click noisy sample loader, `.txt`/`.csv` upload, live side-by-side diff highlighting, entity counts, Luhn-rejected audit telemetry, 1-click sanitized download, Vitest automated tests, and Google Cloud Run / Firebase hosting configuration.
+> Remove external font requests, enforce strict CSP headers on Vercel (`connect-src 'none'`), guard custom regexes in a terminable Web Worker with ReDoS rejection, harden PBKDF2 to 600,000 iterations, start with a clean empty workspace, and enforce full WCAG keyboard/modal accessibility.
 
-**Verification & Deliverables:**
-- Added automated unit and UI component tests (`src/engine/__tests__/engine.test.ts` and `src/App.test.tsx`).
-- Added optional on-device Chrome Built-in AI (`Gemini Nano` / `LanguageModel`) summary over aggregate counts only (`src/engine/chromeAi.ts`).
-- Configured multi-stage `Dockerfile` (`nginx.conf.template` listening on `$PORT=8080`) for Google Cloud Run and `firebase.json` for Firebase Hosting.
-
----
-
-## Prompt Iteration 5 — Differentiator Enterprise Features (Round-Trip Vault, CSV Table Diff, Risk Gauge & Custom Rules)
-**Prompt Goal:**  
-> Elevate the tool beyond basic redaction into a complete client-side privacy gateway: add a compliance risk gauge (`PCI-DSS`, `India DPDP / UIDAI`, `GDPR`), interactive CSV spreadsheet diff table, click-to-inspect mathematical Luhn/Verhoeff proof, custom regex secret builder, and Web Crypto `AES-GCM-256` local pseudonym vault with round-trip de-pseudonymization.
-
-**Key Additions:**
-- `src/engine/compliance.ts`: Real-time exposure scoring (`0–100` before → `0/100` sanitized) + `MB/s` scan throughput.
-- `src/engine/cryptoVault.ts`: Local `PBKDF2-SHA256` + `AES-GCM-256` encrypted vault export + `rehydratePseudonyms()` so users can sanitize prompts, send safely to an LLM, and restore original identifiers locally.
-- `src/components/DiffViewer.tsx`: Added CSV Table Diff view, Synchronized Scroll, and Click-to-Inspect entity verification banner.
-- `src/components/VaultAndCustomPanel.tsx`: Custom secret rule presets (`Indian IFSC`, `API Keys`, `Employee ID`) with ReDoS/empty-match guards.
+**Outcome:**  
+- Shipped `vercel.json` security headers, system-font zero-external-request runtime, 800 ms terminable worker watchdog, 600k PBKDF2 + 12-char passphrase vault, keyboard tablist navigation, modal focus trap with focus return, and expanded Vitest suite.

@@ -27,7 +27,8 @@ const CATEGORY_WEIGHTS: Record<PiiCategory, number> = {
 }
 
 /**
- * Computes a deterministic compliance & privacy risk assessment before vs. after sanitization.
+ * Computes a local heuristic exposure estimate before vs. after pattern redaction.
+ * Represents pattern coverage under active rules, not a formal compliance certification.
  */
 export function assessPrivacyRisk(result: SanitizeResult): PrivacyRiskAssessment {
   const counts = result.countsByCategory
@@ -36,7 +37,6 @@ export function assessPrivacyRisk(result: SanitizeResult): PrivacyRiskAssessment
   for (const [cat, weight] of Object.entries(CATEGORY_WEIGHTS) as Array<
     [PiiCategory, number]
   >) {
-    // Diminishing marginal contribution past first occurrence while still scaling with volume
     const c = counts[cat]
     if (c > 0) {
       weightedScore += weight + Math.min(12, (c - 1) * 3)
@@ -59,21 +59,21 @@ export function assessPrivacyRisk(result: SanitizeResult): PrivacyRiskAssessment
   const frameworks: ComplianceFrameworkStatus[] = [
     {
       id: 'pci_dss',
-      label: 'PCI-DSS (Payment Cards)',
+      label: 'Payment Card Patterns',
       findingsBefore: pciFindings,
       mitigatedAfter: pciFindings,
       status: pciFindings > 0 ? 'protected' : 'clear',
     },
     {
       id: 'dpdp_india',
-      label: 'India DPDP / UIDAI / PAN',
+      label: 'Indian Gov ID Patterns',
       findingsBefore: dpdpFindings,
       mitigatedAfter: dpdpFindings,
       status: dpdpFindings > 0 ? 'protected' : 'clear',
     },
     {
       id: 'gdpr_contact',
-      label: 'GDPR / Contact & Network',
+      label: 'Contact & Network Patterns',
       findingsBefore: contactFindings,
       mitigatedAfter: contactFindings,
       status: contactFindings > 0 ? 'protected' : 'clear',

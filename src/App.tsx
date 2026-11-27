@@ -4,7 +4,7 @@ import { DiffViewer } from './components/DiffViewer'
 import { Header } from './components/Header'
 import { PromptLogModal } from './components/PromptLogModal'
 import { SecurityWorkbench } from './components/SecurityWorkbench'
-import { SAMPLE_DATASETS, type SampleDataset } from './data/samples'
+import type { SampleDataset } from './data/samples'
 import {
   detectOnDeviceAiStatus,
   generateOnDevicePrivacySummary,
@@ -28,6 +28,7 @@ import type {
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 const WORKER_THRESHOLD_CHARS = 25_000
+const WORKER_TIMEOUT_MS = 800
 
 function triggerClientDownload(
   content: string,
@@ -46,7 +47,7 @@ function triggerClientDownload(
 }
 
 export function App() {
-  const [rawInput, setRawInput] = useState<string>(SAMPLE_DATASETS[0].content)
+  const [rawInput, setRawInput] = useState<string>('')
   const [inputFormat, setInputFormat] = useState<'txt' | 'csv'>('txt')
   const [activeFileName, setActiveFileName] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -56,6 +57,9 @@ export function App() {
     Record<PiiCategory, boolean>
   >({ ...DEFAULT_ENABLED_CATEGORIES })
   const [customRules, setCustomRules] = useState<CustomRule[]>([])
+  const [customRuleWarning, setCustomRuleWarning] = useState<string | null>(
+    null
+  )
   const [promptLogOpen, setPromptLogOpen] = useState(false)
   const [onDeviceAiStatus, setOnDeviceAiStatus] = useState<
     'available' | 'unavailable'
@@ -63,11 +67,17 @@ export function App() {
   const [privacyAdvice, setPrivacyAdvice] =
     useState<OnDeviceAdviceResult | null>(null)
   const [workerResult, setWorkerResult] = useState<SanitizeResult | null>(null)
+  const [isWorkerProcessing, setIsWorkerProcessing] = useState(false)
+
+  const promptLogTriggerRef = useRef<HTMLButtonElement>(null)
   const workerRef = useRef<Worker | null>(null)
   const workerReqIdRef = useRef(0)
 
+  const hasEnabledCustomRules = customRules.some((r) => r.enabled)
   const useBackgroundWorker =
-    typeof Worker !== 'undefined' && rawInput.length >= WORKER_THRESHOLD_CHARS
+    typeof Worker !== 'undefined' &&
+    (rawInput.length >= WORKER_THRESHOLD_CHARS ||
+      (hasEnabledCustomRules && rawInput.length > 0))
 
   const syncResult = useMemo(() => {
     if (useBackgroundWorker) return null
@@ -103,12 +113,29 @@ export function App() {
 
     const requestId = ++workerReqIdRef.current
     const worker = workerRef.current
+    let settled = false
+
+    const timeoutId = window.setTimeout(() => {
+      if (settled) return
+      settled = true
+      worker.terminate()
+      workerRef.current = null
+      setIsWorkerProcessing(false)
+      setCustomRuleWarning(
+        'Custom regex scan exceeded 800 ms and was terminated safely to keep the page responsive.'
+      )
+    }, WORKER_TIMEOUT_MS)
 
     const handleMessage = (event: MessageEvent<SanitizeWorkerResponse>) => {
-      if (event.data.requestId === workerReqIdRef.current) {
+      if (event.data.requestId === workerReqIdRef.current && !settled) {
+        settled = true
+        window.clearTimeout(timeoutId)
+        setCustomRuleWarning(null)
+        setIsWorkerProcessing(false)
         setWorkerResult(event.data.result)
       }
     }
+
     worker.addEventListener('message', handleMessage)
 
     const payload: SanitizeWorkerRequest = {
@@ -122,9 +149,14 @@ export function App() {
         customRules,
       },
     }
+    queueMicrotask(() => {
+      if (!settled) setIsWorkerProcessing(true)
+    })
     worker.postMessage(payload)
 
     return () => {
+      settled = true
+      window.clearTimeout(timeoutId)
       worker.removeEventListener('message', handleMessage)
     }
   }, [
@@ -193,20 +225,20 @@ export function App() {
       return {
         source: 'local-engine',
         summary:
-          'No sensitive PII entities were detected in this payload. Safe to review and export locally.',
+          'No built-in PII patterns matched in this payload under active filters.',
       }
     }
-    const complianceNote =
+    const scopeNote =
       highRiskCount > 0
-        ? `Detected ${highRiskCount} high-sensitivity financial/government IDs (PCI-DSS / DPDP Act scope)`
-        : `Detected ${total} contact/network identifiers`
+        ? `Matched ${highRiskCount} financial/government ID pattern(s)`
+        : `Matched ${total} contact/network pattern(s)`
     const luhnNote =
       result.luhnRejected.length > 0
-        ? ` and filtered ${result.luhnRejected.length} non-Luhn 16-digit false positive(s).`
+        ? ` and excluded ${result.luhnRejected.length} non-Luhn 16-digit candidate(s).`
         : '.'
     return {
       source: 'local-engine',
-      summary: `${complianceNote}${luhnNote} All ${total} entities were sanitized in-browser under "${mode}" mode with zero server transmission.`,
+      summary: `${scopeNote}${luhnNote} Redacted ${total} item(s) locally under "${mode}" mode.`,
     }
   }, [
     result.countsByCategory,
@@ -290,6 +322,7 @@ export function App() {
 
   function handleClear() {
     setUploadError(null)
+    setCustomRuleWarning(null)
     setActiveFileName(null)
     setInputFormat('txt')
     setRawInput('')
@@ -316,6 +349,7 @@ export function App() {
       : 'sanitized-output.txt'
 
   function handleDownloadSanitized() {
+    if (!result.sanitizedText || result.csvParseError) return
     const mime =
       inputFormat === 'csv'
         ? 'text/csv;charset=utf-8'
@@ -324,13 +358,14 @@ export function App() {
   }
 
   function handleDownloadAuditJson() {
+    if (!result.originalText || result.csvParseError) return
     const safeReport = {
       generatedAt: new Date().toISOString(),
-      executionMode: '100% client-side (zero external transmission)',
+      executionMode: 'Local browser memory',
       redactionMode: mode,
       inputFormat,
-      riskScoreBefore: complianceAssessment.rawRiskScore,
-      riskScoreAfter: complianceAssessment.sanitizedRiskScore,
+      heuristicExposureBefore: complianceAssessment.rawRiskScore,
+      heuristicExposureAfter: complianceAssessment.sanitizedRiskScore,
       totalEntitiesRedacted: result.totalEntities,
       countsByCategory: result.countsByCategory,
       luhnFalsePositivesRejected: result.luhnRejected.map((r) => ({
@@ -352,16 +387,17 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0d14] text-[#eef0f5]">
+    <div className="workstation-canvas min-h-screen text-[#eef0f5]">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-[#eef0f5] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[#0b0d14]"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-[#eef0f5] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[#090b10]"
       >
         Skip to sanitization workspace
       </a>
 
       <Header
         onOpenPromptLog={() => setPromptLogOpen(true)}
+        promptLogTriggerRef={promptLogTriggerRef}
         onDeviceAiStatus={onDeviceAiStatus}
       />
 
@@ -380,6 +416,11 @@ export function App() {
           onLoadSample={handleLoadSample}
           onUploadFile={handleUploadFile}
           onClear={handleClear}
+          onDownloadSanitized={handleDownloadSanitized}
+          canDownload={
+            Boolean(result.sanitizedText) && !result.csvParseError
+          }
+          downloadFileName={downloadFileName}
           activeFileName={activeFileName}
           uploadError={uploadError}
         />
@@ -388,8 +429,16 @@ export function App() {
           rawInput={rawInput}
           onRawInputChange={handleRawInputChange}
           result={result}
+          isProcessing={isWorkerProcessing && useBackgroundWorker}
           downloadFileName={downloadFileName}
           onDownloadSanitized={handleDownloadSanitized}
+          onLoadSample={handleLoadSample}
+          onRequestUpload={() => {
+            const el = document.getElementById(
+              'pii-file-upload'
+            ) as HTMLInputElement | null
+            el?.click()
+          }}
         />
 
         <SecurityWorkbench
@@ -398,6 +447,7 @@ export function App() {
           mode={mode}
           privacyAdvice={activePrivacyAdvice}
           customRules={customRules}
+          customRuleWarning={customRuleWarning}
           onAddCustomRule={handleAddCustomRule}
           onToggleCustomRule={handleToggleCustomRule}
           onDeleteCustomRule={handleDeleteCustomRule}
@@ -408,6 +458,7 @@ export function App() {
       <PromptLogModal
         open={promptLogOpen}
         onClose={() => setPromptLogOpen(false)}
+        returnFocusRef={promptLogTriggerRef}
       />
     </div>
   )

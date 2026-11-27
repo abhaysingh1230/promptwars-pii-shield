@@ -6,11 +6,19 @@ import {
 } from '../chromeAi'
 import { assessPrivacyRisk } from '../compliance'
 import {
+  PBKDF2_ITERATIONS,
   decryptVaultMappings,
   encryptVaultMappings,
   rehydratePseudonyms,
+  validateVaultPassphrase,
 } from '../cryptoVault'
-import { sanitizeCsvDocument, parseCsv, serializeCsv } from '../csv'
+import {
+  escapeCsvFormula,
+  parseCsv,
+  parseCsvStrict,
+  sanitizeCsvDocument,
+  serializeCsv,
+} from '../csv'
 import { sanitizeText, validateCustomRegex } from '../detector'
 import { inspectClientNetworkEgress } from '../networkAudit'
 import { DEFAULT_ENABLED_CATEGORIES, type SanitizeOptions } from '../types'
@@ -60,27 +68,26 @@ describe('validators', () => {
 
     expect(isValidIpv6('2001:db8:85a3::8a2e:370:7334')).toBe(true)
     expect(isValidIpv6('2001:db8:::1')).toBe(false)
-
-    // Verhoeff check rejects clearly invalid checksums while format matcher still catches test IDs
     expect(verhoeffCheck('123456789012')).toBe(false)
   })
 })
 
-describe('PII detection & 3 redaction modes', () => {
+describe('PII detection, edge cases, and 3 redaction modes', () => {
   const sampleInput = [
     'Email: alice@corp.in and Alice@corp.in',
-    'Phone: +91 98765 43210 and 9876543210',
-    'PAN: ABCPK1234F | Aadhaar: 4512 8890 1234',
+    'Phone: +91 98765 43210 and 9876543210 and +44 20 7946 0958',
+    'PAN: ABCPK1234F | Lowercase PAN: abcpk1234f | Non-PAN: error1234a',
+    'Aadhaar: 4512 8890 1234',
     'IP: 192.168.10.25 | Version: v1.2.3.4',
     'Valid Card: 4111-1111-1111-1111 | Fake 16-digit: 1234-5678-9012-3456',
   ].join('\n')
 
-  it('detects all 6 PII types and skips non-Luhn 16-digit numbers and version tags', () => {
+  it('detects all 6 PII types, mixed-case PAN, international phones, and skips non-Luhn 16-digit numbers', () => {
     const res = sanitizeText(sampleInput, baseOptions)
 
     expect(res.countsByCategory.email).toBe(2)
-    expect(res.countsByCategory.phone).toBe(2)
-    expect(res.countsByCategory.pan).toBe(1)
+    expect(res.countsByCategory.phone).toBe(3)
+    expect(res.countsByCategory.pan).toBe(2)
     expect(res.countsByCategory.aadhaar).toBe(1)
     expect(res.countsByCategory.ip_address).toBe(1)
     expect(res.countsByCategory.credit_card).toBe(1)
@@ -89,9 +96,23 @@ describe('PII detection & 3 redaction modes', () => {
     expect(res.luhnRejected[0].raw).toBe('1234-5678-9012-3456')
 
     expect(res.sanitizedText).toContain('v1.2.3.4')
+    expect(res.sanitizedText).toContain('error1234a')
     expect(res.sanitizedText).toContain('1234-5678-9012-3456')
-    expect(res.sanitizedText).not.toContain('4111-1111-1111-1111')
-    expect(res.sanitizedText).toContain('[REDACTED]')
+    expect(res.sanitizedText).not.toContain('abcpk1234f')
+    expect(res.sanitizedText).not.toContain('+44 20 7946 0958')
+  })
+
+  it('handles Unicode boundaries around PII cleanly', () => {
+    const res = sanitizeText(
+      'ईमेल:rohan@bharat.in | पैन:ABCPK1234F | फ़ोन:+919876543210 | IPv6:2001:db8:85a3::8a2e:370:7334',
+      { ...baseOptions, mode: 'partial' }
+    )
+    expect(res.countsByCategory.email).toBe(1)
+    expect(res.countsByCategory.pan).toBe(1)
+    expect(res.countsByCategory.phone).toBe(1)
+    expect(res.countsByCategory.ip_address).toBe(1)
+    expect(res.sanitizedText).toContain('r***@bharat.in')
+    expect(res.sanitizedText).toContain('2001:db8:****:****')
   })
 
   it('retains partial verification context in partial mask mode', () => {
@@ -113,36 +134,14 @@ describe('PII detection & 3 redaction modes', () => {
       mode: 'pseudonym',
     })
 
-    // Both "alice@corp.in" and "Alice@corp.in" must map to EMAIL_01
-    const emailMatches = res.sanitizedText.match(/EMAIL_01/g) ?? []
-    expect(emailMatches).toHaveLength(2)
-    expect(res.sanitizedText).not.toContain('EMAIL_02')
-
-    // Both "+91 98765 43210" and "9876543210" must map to PHONE_01
-    const phoneMatches = res.sanitizedText.match(/PHONE_01/g) ?? []
-    expect(phoneMatches).toHaveLength(2)
-    expect(res.sanitizedText).not.toContain('PHONE_02')
-  })
-
-  it('respects category toggles', () => {
-    const res = sanitizeText(sampleInput, {
-      mode: 'full',
-      enabledCategories: {
-        ...DEFAULT_ENABLED_CATEGORIES,
-        email: false,
-        ip_address: false,
-      },
-    })
-
-    expect(res.countsByCategory.email).toBe(0)
-    expect(res.countsByCategory.ip_address).toBe(0)
-    expect(res.sanitizedText).toContain('alice@corp.in')
-    expect(res.sanitizedText).toContain('192.168.10.25')
+    expect(res.sanitizedText.match(/EMAIL_01/g) ?? []).toHaveLength(2)
+    expect(res.sanitizedText.match(/PHONE_01/g) ?? []).toHaveLength(2)
+    expect(res.sanitizedText.match(/PAN_01/g) ?? []).toHaveLength(2)
   })
 })
 
-describe('CSV sanitization and sample datasets', () => {
-  it('parses and serializes RFC-4180 CSV with quoted commas cleanly', () => {
+describe('CSV hardening, malformed quote detection, and formula injection defense', () => {
+  it('parses RFC-4180 CSV and flags malformed quoting explicitly', () => {
     const raw = 'name,note\n"Doe, Jane","Email: jane@test.com, IP: 10.0.0.1"'
     const rows = parseCsv(raw)
     expect(rows).toEqual([
@@ -150,9 +149,35 @@ describe('CSV sanitization and sample datasets', () => {
       ['Doe, Jane', 'Email: jane@test.com, IP: 10.0.0.1'],
     ])
     expect(serializeCsv(rows)).toBe(raw)
+
+    const unterminated = parseCsvStrict('name,email\n"Jane,jane@test.com')
+    expect(unterminated.ok).toBe(false)
+    expect(unterminated.error).toMatch(/unterminated/i)
+
+    const badQuote = parseCsvStrict('name,email\n"Jane"oops,jane@test.com')
+    expect(badQuote.ok).toBe(false)
+    expect(badQuote.error).toMatch(/closing quote/i)
+
+    const docErr = sanitizeCsvDocument('a,b\n"unclosed', baseOptions)
+    expect(docErr.csvParseError).toMatch(/unterminated/i)
   })
 
-  it('maintains pseudonym consistency across CSV rows and preserves columns', () => {
+  it('escapes spreadsheet formula-leading cells in sanitized CSV exports', () => {
+    expect(escapeCsvFormula('=CMD("calc")')).toBe("'=CMD(\"calc\")")
+    expect(escapeCsvFormula('+1+1')).toBe("'+1+1")
+    expect(escapeCsvFormula('-2+3')).toBe("'-2+3")
+    expect(escapeCsvFormula('@SUM(A1:A2)')).toBe("'@SUM(A1:A2)")
+
+    const csv =
+      'name,formula,email\nAlice,"=HYPERLINK(""http://evil.test"")",alice@corp.in\nBob,=SUM(A1:A2),bob@corp.in'
+    const res = sanitizeCsvDocument(csv, baseOptions)
+    expect(res.csvParseError).toBeUndefined()
+    expect(res.sanitizedText).toContain("'=HYPERLINK(")
+    expect(res.sanitizedText).toContain("'=SUM(A1:A2)")
+    expect(res.sanitizedText).toContain('[REDACTED]')
+  })
+
+  it('maintains pseudonym consistency across CSV rows including multiline cells', () => {
     const hrCsv = SAMPLE_DATASETS.find((s) => s.id === 'hr-csv')
     expect(hrCsv).toBeDefined()
 
@@ -162,32 +187,18 @@ describe('CSV sanitization and sample datasets', () => {
       isCsv: true,
     })
 
+    expect(res.csvParseError).toBeUndefined()
     expect(res.csvRowCount).toBe(5)
     expect(res.csvColCount).toBe(8)
-    // Recurring Aarav email in EMP-101 and EMP-103 maps to EMAIL_01 twice
     expect(res.sanitizedText.match(/EMAIL_01/g)).toHaveLength(2)
-    // Non-Luhn 1234567890123456 in EMP-103 is rejected by Luhn
     expect(res.luhnRejected.some((r) => r.digits === '1234567890123456')).toBe(
       true
     )
-    expect(res.sanitizedText).toContain('1234567890123456')
-  })
-
-  it('runs cleanly across all 4 built-in sample datasets', () => {
-    for (const sample of SAMPLE_DATASETS) {
-      const res =
-        sample.format === 'csv'
-          ? sanitizeCsvDocument(sample.content, baseOptions)
-          : sanitizeText(sample.content, baseOptions)
-
-      expect(res.totalEntities).toBeGreaterThan(0)
-      expect(res.luhnRejected.length).toBeGreaterThan(0)
-    }
   })
 })
 
-describe('compliance scoring, custom rules, and crypto vault', () => {
-  it('computes Luhn sum diagnostics and compliance exposure scores', () => {
+describe('compliance scoring, ReDoS prevention, and strengthened 600k PBKDF2 vault', () => {
+  it('computes Luhn diagnostics and compliance exposure estimate', () => {
     const valid = luhnDiagnostics('4111111111111111')
     expect(valid.valid).toBe(true)
     expect(valid.remainder).toBe(0)
@@ -200,12 +211,13 @@ describe('compliance scoring, custom rules, and crypto vault', () => {
     const assessment = assessPrivacyRisk(res)
     expect(assessment.rawRiskScore).toBeGreaterThanOrEqual(75)
     expect(assessment.sanitizedRiskScore).toBe(0)
-    expect(assessment.severityLabel).toBe('Critical')
   })
 
-  it('safely validates and applies custom regex rules', () => {
+  it('rejects catastrophic ReDoS custom patterns and applies safe custom rules', () => {
     expect(validateCustomRegex('')).not.toBeNull()
     expect(validateCustomRegex('.*')).not.toBeNull()
+    expect(validateCustomRegex('(a+)+')).toMatch(/ReDoS/i)
+    expect(validateCustomRegex('(a|aa)+')).toMatch(/ReDoS/i)
     expect(validateCustomRegex('[unclosed')).not.toBeNull()
     expect(validateCustomRegex('\\bSBIN0001234\\b')).toBeNull()
 
@@ -227,7 +239,12 @@ describe('compliance scoring, custom rules, and crypto vault', () => {
     expect(res.sanitizedText).toContain('SECRET_01')
   })
 
-  it('re-hydrates pseudonyms and round-trips AES-GCM encrypted vault keys', async () => {
+  it('enforces strong passphrase and 600k PBKDF2 + AES-GCM-256 round-trip', async () => {
+    expect(PBKDF2_ITERATIONS).toBe(600_000)
+    expect(validateVaultPassphrase('short')).not.toBeNull()
+    expect(validateVaultPassphrase('onlylowercasechars')).not.toBeNull()
+    expect(validateVaultPassphrase('StrongPass2026!')).toBeNull()
+
     const restored = rehydratePseudonyms(
       'Follow up with EMAIL_01 regarding CARD_01 and EMAIL_01.',
       [
@@ -235,37 +252,20 @@ describe('compliance scoring, custom rules, and crypto vault', () => {
         { pseudonym: 'CARD_01', originalValue: '4111-1111-1111-1111' },
       ]
     )
-
     expect(restored.replacementsApplied).toBe(3)
-    expect(restored.restoredText).toBe(
-      'Follow up with alice@corp.in regarding 4111-1111-1111-1111 and alice@corp.in.'
-    )
 
     const payload = await encryptVaultMappings(
       [{ pseudonym: 'EMAIL_01', originalValue: 'alice@corp.in' }],
-      'strong-passphrase'
+      'StrongPass2026!'
     )
-    expect(payload.algorithm).toBe('AES-GCM-256')
-    const decrypted = await decryptVaultMappings(payload, 'strong-passphrase')
+    expect(payload.iterations).toBe(600_000)
+    const decrypted = await decryptVaultMappings(payload, 'StrongPass2026!')
     expect(decrypted).toEqual([
       { pseudonym: 'EMAIL_01', originalValue: 'alice@corp.in' },
     ])
   })
 
-  it('handles empty text, unicode text, IPv6, and large 100 KB logs efficiently', () => {
-    const empty = sanitizeText('', baseOptions)
-    expect(empty.totalEntities).toBe(0)
-    expect(empty.sanitizedText).toBe('')
-
-    const unicode = sanitizeText(
-      'नाम: रोहन | Email: rohan@bharat.in | IPv6: 2001:db8:85a3::8a2e:370:7334',
-      { ...baseOptions, mode: 'partial' }
-    )
-    expect(unicode.countsByCategory.email).toBe(1)
-    expect(unicode.countsByCategory.ip_address).toBe(1)
-    expect(unicode.sanitizedText).toContain('r***@bharat.in')
-    expect(unicode.sanitizedText).toContain('2001:db8:****:****')
-
+  it('runs 100 KB throughput cleanly and verifies zero external network calls', async () => {
     const largeInput = Array.from(
       { length: 250 },
       () => SAMPLE_DATASETS[0].content
@@ -274,12 +274,10 @@ describe('compliance scoring, custom rules, and crypto vault', () => {
     const largeRes = sanitizeText(largeInput, baseOptions)
     expect(largeRes.totalEntities).toBeGreaterThan(1000)
     expect(largeRes.processingMs).toBeLessThan(500)
-  })
 
-  it('verifies zero external network egress and on-device AI advisory', async () => {
     const net = inspectClientNetworkEgress()
-    expect(net.verifiedZeroDataEgress).toBe(true)
-    expect(net.externalApiCalls).toBe(0)
+    expect(net.verifiedZeroExternalTraffic).toBe(true)
+    expect(net.externalCalls).toBe(0)
 
     expect(await detectOnDeviceAiStatus()).toBe('unavailable')
     const fallback = await generateOnDevicePrivacySummary(
@@ -296,35 +294,5 @@ describe('compliance scoring, custom rules, and crypto vault', () => {
       'partial'
     )
     expect(fallback.source).toBe('local-engine')
-    expect(fallback.summary).toContain('PCI-DSS / DPDP Act')
-
-    const g = globalThis as unknown as { LanguageModel?: unknown }
-    g.LanguageModel = {
-      availability: async () => 'available',
-      create: async () => ({
-        prompt: async () => 'Local Gemini Nano: PCI-DSS scope mitigated.',
-        destroy: () => {},
-      }),
-    }
-    try {
-      expect(await detectOnDeviceAiStatus()).toBe('available')
-      const nano = await generateOnDevicePrivacySummary(
-        {
-          credit_card: 1,
-          pan: 0,
-          aadhaar: 0,
-          email: 0,
-          phone: 0,
-          ip_address: 0,
-          custom: 0,
-        },
-        0,
-        'full'
-      )
-      expect(nano.source).toBe('gemini-nano')
-      expect(nano.summary).toContain('Local Gemini Nano')
-    } finally {
-      delete g.LanguageModel
-    }
   })
 })

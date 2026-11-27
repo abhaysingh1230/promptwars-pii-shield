@@ -26,8 +26,11 @@ import {
 
 const MAX_CANDIDATE_SCAN_LENGTH = 5_000_000
 
-const EMAIL_REGEX = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g
-const PAN_REGEX = /\b[A-Z]{5}[0-9]{4}[A-Z]\b/g
+const EMAIL_REGEX =
+  /(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9])/g
+const PAN_UPPER_REGEX = /(?<![A-Za-z0-9])[A-Z]{5}[0-9]{4}[A-Z](?![A-Za-z0-9])/g
+const PAN_MIXED_REGEX =
+  /(?<![A-Za-z0-9])[A-Za-z]{3}[PCHFATBLJGpchfatbljg][A-Za-z][0-9]{4}[A-Za-z](?![A-Za-z0-9])/g
 const CARD_CANDIDATE_REGEX = /(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)/g
 const AADHAAR_SPACED_REGEX =
   /(?<!\d[\s-])(?<!\d)[1-9]\d{3}(?:[\s-]\d{4}){2}(?![\s-]?\d)/g
@@ -35,9 +38,16 @@ const AADHAAR_PLAIN_REGEX = /(?<!\d)[2-9]\d{11}(?!\d)/g
 const IPV4_REGEX =
   /(?<![\d.])(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?![\d.])/g
 const IPV6_REGEX =
-  /(?<![:\w])(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}(?![:\w])/g
+  /(?:(?<=^)|(?<=[\s,|(\[{"'=;])|(?<=IPv6:)|(?<=ipv6:))(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}(?![:\w])/g
 const PHONE_REGEX =
-  /(?<![\d\w])(?:\+91[\s.-]?[6-9]\d{4}[\s.-]?\d{5}|\+91[\s.-]?[6-9]\d{9}|0[6-9]\d{9}|[6-9]\d{4}[\s-]\d{5}|[6-9]\d{9}|\+\d{1,3}[\s.-]?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{4})(?!\d)/g
+  /(?<![A-Za-z0-9])(?:\+91[\s.-]?[6-9]\d{4}[\s.-]?\d{5}|\+91[\s.-]?[6-9]\d{9}|0[6-9]\d{9}|[6-9]\d{4}[\s-]\d{5}|[6-9]\d{9}|\+(?:[1-9]\d{0,2})[\s.-]?(?:\(\d{1,4}\)[\s.-]?)?(?:\d[\s.-]?){6,13}\d)(?![A-Za-z0-9])/g
+
+/**
+ * Heuristic detector for catastrophic ReDoS patterns such as nested quantifiers
+ * like (a+)+, (.*)*, or quantified alternations with overlapping groups.
+ */
+const NESTED_QUANTIFIER_REGEX =
+  /\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)[+*?]|\((?:[^()\\]|\\.)*\|(?:[^()\\]|\\.)*\)[+*{]/
 
 interface RawDetectionOutput {
   candidates: PiiCandidate[]
@@ -58,12 +68,15 @@ function createEmptyCounts(): Record<PiiCategory, number> {
 
 /**
  * Validates a user-supplied custom regex pattern before compiling.
- * Returns null if valid, or a human-readable error message.
+ * Rejects empty matches, syntax errors, and nested-quantifier ReDoS patterns.
  */
 export function validateCustomRegex(pattern: string): string | null {
   const trimmed = pattern.trim()
   if (!trimmed) return 'Pattern cannot be empty.'
-  if (trimmed.length > 240) return 'Pattern exceeds 240-character safety limit.'
+  if (trimmed.length > 200) return 'Pattern exceeds 200-character safety limit.'
+  if (NESTED_QUANTIFIER_REGEX.test(trimmed)) {
+    return 'Pattern rejected: nested quantifiers may freeze the browser (ReDoS risk).'
+  }
   try {
     const compiled = new RegExp(trimmed, 'g')
     if (compiled.test('')) {
@@ -90,8 +103,6 @@ function collectPatternCandidates(
       const raw = match[0]
       const digits = raw.replace(/\D/g, '')
       if (digits.length < 13 || digits.length > 19) continue
-
-      // Ignore 13+ digit spans that are clearly hyphenated timestamps/dates
       if (/^\d{4}-\d{2}-\d{2}/.test(raw)) continue
 
       const luhn = luhnDiagnostics(digits)
@@ -103,7 +114,7 @@ function collectPatternCandidates(
           start: match.index,
           end: match.index + raw.length,
           confidence: 'high',
-          validationNote: `${detectCardBrand(digits)} • Luhn sum ${luhn.sum} (mod 10 = 0)`,
+          validationNote: `${detectCardBrand(digits)} · Luhn sum ${luhn.sum} (mod 10 = 0)`,
         })
       } else {
         luhnRejected.push({
@@ -137,19 +148,25 @@ function collectPatternCandidates(
   }
 
   if (enabledCategories.pan) {
-    PAN_REGEX.lastIndex = 0
-    let match: RegExpExecArray | null
-    while ((match = PAN_REGEX.exec(text)) !== null) {
-      const raw = match[0]
-      candidates.push({
-        category: 'pan',
-        raw,
-        normalized: normalizeEntityKey('pan', raw),
-        start: match.index,
-        end: match.index + raw.length,
-        confidence: 'high',
-        validationNote: describePanType(raw),
-      })
+    const seenPanStarts = new Set<number>()
+    for (const regex of [PAN_UPPER_REGEX, PAN_MIXED_REGEX]) {
+      regex.lastIndex = 0
+      let match: RegExpExecArray | null
+      while ((match = regex.exec(text)) !== null) {
+        if (seenPanStarts.has(match.index)) continue
+        seenPanStarts.add(match.index)
+        const raw = match[0]
+        const isUppercase = raw === raw.toUpperCase()
+        candidates.push({
+          category: 'pan',
+          raw,
+          normalized: normalizeEntityKey('pan', raw),
+          start: match.index,
+          end: match.index + raw.length,
+          confidence: isUppercase ? 'high' : 'medium',
+          validationNote: `${describePanType(raw)}${isUppercase ? '' : ' · mixed-case match'}`,
+        })
+      }
     }
   }
 
@@ -171,7 +188,9 @@ function collectPatternCandidates(
           start: match.index,
           end: match.index + raw.length,
           confidence: verhoeffOk ? 'high' : 'medium',
-          validationNote: verhoeffOk ? 'Verhoeff verified' : '12-digit UID format',
+          validationNote: verhoeffOk
+            ? 'Verhoeff checksum verified'
+            : 'Format-matched · checksum unverified',
         })
       }
     }
@@ -182,7 +201,6 @@ function collectPatternCandidates(
     let match: RegExpExecArray | null
     while ((match = IPV4_REGEX.exec(text)) !== null) {
       const raw = match[0]
-      // Skip software version tags like v1.2.3.4
       const prevChar = match.index > 0 ? text[match.index - 1] : ''
       if (prevChar === 'v' || prevChar === 'V') continue
       if (!isValidIpv4(raw)) continue
@@ -217,9 +235,13 @@ function collectPatternCandidates(
     PHONE_REGEX.lastIndex = 0
     let match: RegExpExecArray | null
     while ((match = PHONE_REGEX.exec(text)) !== null) {
-      const raw = match[0]
+      const raw = match[0].trim()
       const digits = raw.replace(/\D/g, '')
-      if (digits.length < 10 || digits.length > 15) continue
+      if (digits.length < 8 || digits.length > 15) continue
+      // Avoid plain 8-digit non-prefixed numbers; require 10+ digits unless international + prefixed
+      if (!raw.startsWith('+') && digits.length < 10) continue
+      // Avoid matching dates like 2026-11-27
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) continue
       candidates.push({
         category: 'phone',
         raw,
@@ -252,7 +274,7 @@ function collectPatternCandidates(
           start: match.index,
           end: match.index + raw.length,
           confidence: 'medium',
-          validationNote: `Custom Rule: ${rule.label}`,
+          validationNote: `Custom rule: ${rule.label}`,
         })
       }
     }
@@ -285,7 +307,6 @@ function resolveOverlaps(candidates: PiiCandidate[]): PiiCandidate[] {
       continue
     }
 
-    // If a higher-priority or strictly wider entity overlaps the tail of a weaker match
     const prev = accepted[accepted.length - 1]
     const prevPrio = PII_CATEGORY_META[prev.category].priority
     const itemPrio = PII_CATEGORY_META[item.category].priority
@@ -302,10 +323,6 @@ function resolveOverlaps(candidates: PiiCandidate[]): PiiCandidate[] {
   return accepted
 }
 
-/**
- * Filters out Luhn-rejected ranges that were already claimed by another valid PII type
- * (for example, an international phone number with 13 digits).
- */
 function filterLuhnRejected(
   rejected: LuhnRejectedCandidate[],
   accepted: PiiCandidate[]
@@ -320,7 +337,6 @@ function filterLuhnRejected(
 
 /**
  * Runs client-side PII detection, validation, and redaction on raw text.
- * Supports passing a shared PseudonymRegistry for multi-cell CSV consistency.
  */
 export function sanitizeText(
   text: string,

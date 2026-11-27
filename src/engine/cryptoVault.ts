@@ -1,7 +1,7 @@
 import type { PseudonymMapping } from './types'
 
 export interface EncryptedVaultPayload {
-  version: 1
+  version: 2
   algorithm: 'AES-GCM-256'
   kdf: 'PBKDF2-SHA256'
   iterations: number
@@ -15,7 +15,8 @@ export interface VaultEntry {
   originalValue: string
 }
 
-const PBKDF2_ITERATIONS = 100_000
+export const PBKDF2_ITERATIONS = 600_000
+export const MIN_VAULT_PASSPHRASE_LENGTH = 12
 
 function toBase64(bytes: Uint8Array): string {
   let binary = ''
@@ -35,9 +36,26 @@ function fromBase64(b64: string): Uint8Array<ArrayBuffer> {
   return bytes
 }
 
+export function validateVaultPassphrase(passphrase: string): string | null {
+  if (passphrase.length < MIN_VAULT_PASSPHRASE_LENGTH) {
+    return `Passphrase must be at least ${MIN_VAULT_PASSPHRASE_LENGTH} characters.`
+  }
+  const classes = [
+    /[a-z]/.test(passphrase),
+    /[A-Z]/.test(passphrase),
+    /[0-9]/.test(passphrase),
+    /[^A-Za-z0-9]/.test(passphrase),
+  ].filter(Boolean).length
+  if (classes < 2) {
+    return 'Use a mix of at least two character types (letters, numbers, or symbols).'
+  }
+  return null
+}
+
 async function deriveAesKey(
   passphrase: string,
   salt: Uint8Array<ArrayBuffer>,
+  iterations: number,
   usage: KeyUsage[]
 ): Promise<CryptoKey> {
   const encoder = new TextEncoder()
@@ -53,7 +71,7 @@ async function deriveAesKey(
     {
       name: 'PBKDF2',
       salt,
-      iterations: PBKDF2_ITERATIONS,
+      iterations,
       hash: 'SHA-256',
     },
     keyMaterial,
@@ -64,18 +82,23 @@ async function deriveAesKey(
 }
 
 /**
- * Encrypts pseudonym mappings locally using Web Crypto API (PBKDF2 + AES-GCM-256).
+ * Encrypts pseudonym mappings locally using Web Crypto API (PBKDF2 600k + AES-GCM-256).
  */
 export async function encryptVaultMappings(
   entries: VaultEntry[],
   passphrase: string
 ): Promise<EncryptedVaultPayload> {
+  const err = validateVaultPassphrase(passphrase)
+  if (err) {
+    throw new Error(err)
+  }
+
   const salt = new Uint8Array(new ArrayBuffer(16))
   const iv = new Uint8Array(new ArrayBuffer(12))
   crypto.getRandomValues(salt)
   crypto.getRandomValues(iv)
 
-  const key = await deriveAesKey(passphrase, salt, ['encrypt'])
+  const key = await deriveAesKey(passphrase, salt, PBKDF2_ITERATIONS, ['encrypt'])
   const plaintext = new TextEncoder().encode(JSON.stringify(entries))
   const encrypted = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
@@ -84,7 +107,7 @@ export async function encryptVaultMappings(
   )
 
   return {
-    version: 1,
+    version: 2,
     algorithm: 'AES-GCM-256',
     kdf: 'PBKDF2-SHA256',
     iterations: PBKDF2_ITERATIONS,
@@ -104,8 +127,12 @@ export async function decryptVaultMappings(
   const salt = fromBase64(payload.saltBase64)
   const iv = fromBase64(payload.ivBase64)
   const ciphertext = fromBase64(payload.ciphertextBase64)
+  const iterations =
+    typeof payload.iterations === 'number' && payload.iterations >= 100_000
+      ? payload.iterations
+      : PBKDF2_ITERATIONS
 
-  const key = await deriveAesKey(passphrase, salt, ['decrypt'])
+  const key = await deriveAesKey(passphrase, salt, iterations, ['decrypt'])
   const decrypted = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv },
     key,

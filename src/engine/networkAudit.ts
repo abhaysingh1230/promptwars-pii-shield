@@ -1,18 +1,13 @@
 /**
  * Client-side network silence verifier using the browser Performance Resource Timing API.
- * Confirms zero external XHR/Fetch calls are made to transmit sanitized or raw data.
+ * Confirms zero external third-party XHR/Fetch/asset calls occur during runtime.
  */
 
 export interface NetworkAuditSnapshot {
-  externalApiCalls: number
-  staticAssetCalls: number
-  verifiedZeroDataEgress: boolean
+  externalCalls: number
+  sameOriginAssetCalls: number
+  verifiedZeroExternalTraffic: boolean
 }
-
-const ALLOWED_STATIC_HOSTS = new Set([
-  'fonts.googleapis.com',
-  'fonts.gstatic.com',
-])
 
 export function inspectClientNetworkEgress(): NetworkAuditSnapshot {
   if (
@@ -20,9 +15,9 @@ export function inspectClientNetworkEgress(): NetworkAuditSnapshot {
     typeof performance.getEntriesByType !== 'function'
   ) {
     return {
-      externalApiCalls: 0,
-      staticAssetCalls: 0,
-      verifiedZeroDataEgress: true,
+      externalCalls: 0,
+      sameOriginAssetCalls: 0,
+      verifiedZeroExternalTraffic: true,
     }
   }
 
@@ -34,8 +29,8 @@ export function inspectClientNetworkEgress(): NetworkAuditSnapshot {
   const currentOrigin =
     typeof window !== 'undefined' ? window.location.origin : ''
 
-  let externalApiCalls = 0
-  let staticAssetCalls = 0
+  let externalCalls = 0
+  let sameOriginAssetCalls = 0
 
   for (const entry of entries) {
     const urlStr = entry.name ?? ''
@@ -46,25 +41,20 @@ export function inspectClientNetworkEgress(): NetworkAuditSnapshot {
     try {
       const parsed = new URL(urlStr, currentOrigin || 'http://localhost')
       const isSameOrigin = currentOrigin && parsed.origin === currentOrigin
-      const isAllowedFontHost = ALLOWED_STATIC_HOSTS.has(parsed.hostname)
 
-      if (isSameOrigin || isAllowedFontHost) {
-        staticAssetCalls += 1
-      } else if (
-        entry.initiatorType === 'fetch' ||
-        entry.initiatorType === 'xmlhttprequest' ||
-        entry.initiatorType === 'beacon'
-      ) {
-        externalApiCalls += 1
+      if (isSameOrigin) {
+        sameOriginAssetCalls += 1
+      } else {
+        externalCalls += 1
       }
     } catch {
-      // Ignore malformed browser internal resource entries
+      // Ignore malformed internal browser entries
     }
   }
 
   return {
-    externalApiCalls,
-    staticAssetCalls,
-    verifiedZeroDataEgress: externalApiCalls === 0,
+    externalCalls,
+    sameOriginAssetCalls,
+    verifiedZeroExternalTraffic: externalCalls === 0,
   }
 }

@@ -10,14 +10,28 @@ import {
   type SanitizeResult,
 } from './types'
 
+export interface CsvParseValidationResult {
+  ok: boolean
+  rows: string[][]
+  error?: string
+}
+
+const FORMULA_PREFIX_REGEX = /^[=+\-@\t\r]/
+
 /**
- * Parses RFC-4180 CSV content into rows of cells in O(n) single pass.
+ * Strictly parses RFC-4180 CSV content and explicitly detects malformed quoting:
+ * - Unterminated quoted fields at EOF
+ * - Unescaped quotes inside unquoted fields
+ * - Non-delimiter characters following a closing quote
  */
-export function parseCsv(input: string): string[][] {
+export function parseCsvStrict(input: string): CsvParseValidationResult {
   const rows: string[][] = []
   let currentRow: string[] = []
   let currentCell = ''
   let inQuotes = false
+  let justClosedQuote = false
+  let cellStart = true
+  let line = 1
 
   for (let i = 0; i < input.length; i++) {
     const ch = input[i]
@@ -29,65 +43,169 @@ export function parseCsv(input: string): string[][] {
         i++
       } else if (ch === '"') {
         inQuotes = false
+        justClosedQuote = true
       } else {
+        if (ch === '\n') line++
         currentCell += ch
       }
       continue
     }
 
+    if (justClosedQuote) {
+      if (ch === ',') {
+        currentRow.push(currentCell)
+        currentCell = ''
+        justClosedQuote = false
+        cellStart = true
+        continue
+      }
+      if (ch === '\r' && next === '\n') {
+        currentRow.push(currentCell)
+        rows.push(currentRow)
+        currentRow = []
+        currentCell = ''
+        justClosedQuote = false
+        cellStart = true
+        line++
+        i++
+        continue
+      }
+      if (ch === '\n' || ch === '\r') {
+        currentRow.push(currentCell)
+        rows.push(currentRow)
+        currentRow = []
+        currentCell = ''
+        justClosedQuote = false
+        cellStart = true
+        line++
+        continue
+      }
+      return {
+        ok: false,
+        rows: [],
+        error: `Malformed CSV at line ${line}: unexpected character "${ch}" after closing quote.`,
+      }
+    }
+
     if (ch === '"') {
+      if (!cellStart) {
+        return {
+          ok: false,
+          rows: [],
+          error: `Malformed CSV at line ${line}: unescaped quote inside unquoted cell.`,
+        }
+      }
       inQuotes = true
+      cellStart = false
     } else if (ch === ',') {
       currentRow.push(currentCell)
       currentCell = ''
+      cellStart = true
     } else if (ch === '\r' && next === '\n') {
       currentRow.push(currentCell)
       rows.push(currentRow)
       currentRow = []
       currentCell = ''
+      cellStart = true
+      line++
       i++
     } else if (ch === '\n' || ch === '\r') {
       currentRow.push(currentCell)
       rows.push(currentRow)
       currentRow = []
       currentCell = ''
+      cellStart = true
+      line++
     } else {
       currentCell += ch
+      cellStart = false
     }
   }
 
-  if (currentCell.length > 0 || currentRow.length > 0) {
+  if (inQuotes) {
+    return {
+      ok: false,
+      rows: [],
+      error: `Malformed CSV: unterminated quoted cell starting before line ${line}.`,
+    }
+  }
+
+  if (currentCell.length > 0 || currentRow.length > 0 || justClosedQuote) {
     currentRow.push(currentCell)
     rows.push(currentRow)
   }
 
-  return rows
+  return { ok: true, rows }
+}
+
+/**
+ * Convenience parser returning rows (or empty array if invalid).
+ */
+export function parseCsv(input: string): string[][] {
+  const parsed = parseCsvStrict(input)
+  return parsed.ok ? parsed.rows : []
+}
+
+/**
+ * Prevents spreadsheet formula execution (=, +, -, @, tab, CR) in exported CSV cells.
+ */
+export function escapeCsvFormula(value: string): string {
+  if (FORMULA_PREFIX_REGEX.test(value)) {
+    return `'${value}`
+  }
+  return value
 }
 
 /**
  * Escapes and formats a cell value according to RFC-4180 CSV quoting rules.
  */
-export function formatCsvCell(value: string): string {
-  if (/[",\r\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`
+export function formatCsvCell(
+  value: string,
+  escapeFormulas = false
+): string {
+  const safeVal = escapeFormulas ? escapeCsvFormula(value) : value
+  if (/[",\r\n]/.test(safeVal)) {
+    return `"${safeVal.replace(/"/g, '""')}"`
   }
-  return value
+  return safeVal
 }
 
-export function serializeCsv(rows: string[][]): string {
-  return rows.map((row) => row.map(formatCsvCell).join(',')).join('\n')
+export function serializeCsv(
+  rows: string[][],
+  options: { escapeFormulas?: boolean } = {}
+): string {
+  const escapeFormulas = Boolean(options.escapeFormulas)
+  return rows
+    .map((row) => row.map((cell) => formatCsvCell(cell, escapeFormulas)).join(','))
+    .join('\n')
 }
 
 /**
  * Sanitizes CSV cell-by-cell while preserving row/column boundaries and
- * maintaining consistent pseudonym mappings across the entire table.
+ * escaping formula-leading characters in downloadable CSV output.
  */
 export function sanitizeCsvDocument(
   csvText: string,
   options: SanitizeOptions
 ): SanitizeResult {
   const startTime = performance.now()
-  const rows = parseCsv(csvText)
+  const parsed = parseCsvStrict(csvText)
+
+  if (!parsed.ok) {
+    const emptyResult = sanitizeText('', { ...options, isCsv: true })
+    return {
+      ...emptyResult,
+      originalText: csvText,
+      sanitizedText: '',
+      isCsv: true,
+      csvRowCount: 0,
+      csvColCount: 0,
+      csvParseError: parsed.error,
+      processingMs: Number((performance.now() - startTime).toFixed(2)),
+    }
+  }
+
+  const rows = parsed.rows
   const sharedRegistry = new PseudonymRegistry()
 
   const countsByCategory: Record<PiiCategory, number> = {
@@ -164,7 +282,7 @@ export function sanitizeCsvDocument(
 
   return {
     originalText: csvText,
-    sanitizedText: serializeCsv(sanitizedRows),
+    sanitizedText: serializeCsv(sanitizedRows, { escapeFormulas: true }),
     entities: allEntities,
     luhnRejected: allLuhnRejected,
     countsByCategory,
