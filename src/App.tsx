@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ComplianceBanner } from './components/ComplianceBanner'
 import { ControlsBar } from './components/ControlsBar'
 import { DiffViewer } from './components/DiffViewer'
 import { Header } from './components/Header'
@@ -353,10 +352,10 @@ export function App() {
   }
 
   return (
-    <div className="bg-cyber-grid min-h-screen text-slate-100">
+    <div className="min-h-screen bg-[#0b0d14] text-[#eef0f5]">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-cyan-400 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-slate-950"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-[#eef0f5] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[#0b0d14]"
       >
         Skip to sanitization workspace
       </a>
@@ -368,10 +367,8 @@ export function App() {
 
       <main
         id="main-content"
-        className="mx-auto max-w-7xl space-y-4 px-4 py-5 sm:px-6"
+        className="mx-auto max-w-[1440px] space-y-4 px-4 py-4 sm:px-6"
       >
-        <ComplianceBanner assessment={complianceAssessment} />
-
         <ControlsBar
           mode={mode}
           onModeChange={setMode}
@@ -397,6 +394,7 @@ export function App() {
 
         <SecurityWorkbench
           result={result}
+          assessment={complianceAssessment}
           mode={mode}
           privacyAdvice={activePrivacyAdvice}
           customRules={customRules}

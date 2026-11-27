@@ -69,3 +69,9 @@ gcloud run deploy pii-shield \
 npm run build
 firebase deploy --only hosting
 ```
+
+---
+
+## Credits
+
+UI design system and anti-slop polish adapted from [unslop](https://github.com/heydamir/unslop) by Damir Sokolovsky ([@heydamir](https://x.com/heydamir)), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).

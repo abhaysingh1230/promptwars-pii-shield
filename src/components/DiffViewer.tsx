@@ -33,8 +33,8 @@ function renderHighlightedSegments(
 ) {
   if (segments.length === 0) {
     return (
-      <span className="text-slate-500">
-        Paste text or load a sample dataset to inspect live PII highlights...
+      <span className="text-[#7a8296]">
+        Paste text or load a sample dataset to inspect live PII highlights
       </span>
     )
   }
@@ -62,9 +62,9 @@ function renderHighlightedSegments(
         onClick={() => onSelectEntity(entity)}
         title={tooltip}
         aria-label={tooltip}
-        className={`inline cursor-pointer rounded px-1 py-0.5 font-mono text-[13px] transition ${
+        className={`transition-unslop inline cursor-pointer rounded px-1 py-0.5 font-mono text-[13px] ${
           variant === 'original' ? meta.highlightClass : meta.redactedClass
-        } ${isSelected ? 'ring-2 ring-white/90' : ''}`}
+        } ${isSelected ? 'ring-1 ring-[#eef0f5]' : ''}`}
       >
         {seg.text}
       </button>
@@ -128,13 +128,13 @@ export function DiffViewer({
   return (
     <section aria-labelledby="diff-heading" className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 id="diff-heading" className="text-sm font-semibold text-white">
-            Live Side-by-Side Diff View
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 id="diff-heading" className="text-sm font-medium text-[#eef0f5]">
+            Side-by-side diff
           </h2>
           {result.isCsv && (
-            <span className="rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 font-mono text-[11px] text-blue-300">
-              CSV Mode • {result.csvRowCount} rows × {result.csvColCount} cols
+            <span className="font-mono text-xs tabular-nums text-[#a3a9b8]">
+              CSV · {result.csvRowCount} rows × {result.csvColCount} cols
             </span>
           )}
         </div>
@@ -144,33 +144,33 @@ export function DiffViewer({
             <div
               role="group"
               aria-label="CSV view format"
-              className="inline-flex rounded-lg border border-slate-800 bg-slate-900 p-0.5"
+              className="inline-flex rounded-lg border border-[#eef0f5]/[0.08] bg-[#11141c] p-0.5"
             >
               <button
                 type="button"
                 aria-pressed={effectiveViewMode === 'text'}
                 onClick={() => setViewMode('text')}
-                className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                className={`transition-unslop inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ${
                   effectiveViewMode === 'text'
-                    ? 'bg-slate-800 text-white'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'surface-active bg-[#1a1e28] text-[#eef0f5]'
+                    : 'text-[#a3a9b8] hover:text-[#eef0f5]'
                 }`}
               >
-                <FileCode2 className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Raw Diff</span>
+                <FileCode2 size={16} strokeWidth={1.5} aria-hidden="true" />
+                <span>Raw diff</span>
               </button>
               <button
                 type="button"
                 aria-pressed={effectiveViewMode === 'table'}
                 onClick={() => setViewMode('table')}
-                className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                className={`transition-unslop inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ${
                   effectiveViewMode === 'table'
-                    ? 'bg-cyan-500/20 text-cyan-200'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'surface-active bg-[#1a1e28] text-[#eef0f5]'
+                    : 'text-[#a3a9b8] hover:text-[#eef0f5]'
                 }`}
               >
-                <Table2 className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Table Diff</span>
+                <Table2 size={16} strokeWidth={1.5} aria-hidden="true" />
+                <span>Table diff</span>
               </button>
             </div>
           )}
@@ -179,32 +179,42 @@ export function DiffViewer({
             type="button"
             aria-pressed={syncScroll}
             onClick={() => setSyncScroll((s) => !s)}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+            className={`transition-unslop inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38bdf8] ${
               syncScroll
-                ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-200'
-                : 'border-slate-700 bg-slate-900 text-slate-400'
+                ? 'surface-active border-[#38bdf8]/40 bg-[#1a1e28] text-[#eef0f5]'
+                : 'border-[#eef0f5]/[0.08] bg-[#11141c] text-[#a3a9b8] hover:text-[#eef0f5]'
             }`}
             title="Synchronize scrolling between original and sanitized panes"
           >
-            <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Sync Scroll</span>
+            <Link2 size={16} strokeWidth={1.5} aria-hidden="true" />
+            <span>Sync scroll</span>
           </button>
 
           <button
             type="button"
             onClick={handleCopy}
             disabled={!result.sanitizedText}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-slate-600 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            className="transition-unslop inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#eef0f5]/[0.08] bg-[#1a1e28] px-3 text-xs font-medium text-[#eef0f5] hover:border-[#eef0f5]/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38bdf8]"
           >
             {copied ? (
               <>
-                <Check className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
-                <span className="text-emerald-300">Copied</span>
+                <Check
+                  size={16}
+                  strokeWidth={1.5}
+                  className="text-[#4cc38a]"
+                  aria-hidden="true"
+                />
+                <span>Copied</span>
               </>
             ) : (
               <>
-                <Copy className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-                <span>Copy Output</span>
+                <Copy
+                  size={16}
+                  strokeWidth={1.5}
+                  className="text-[#a3a9b8]"
+                  aria-hidden="true"
+                />
+                <span>Copy output</span>
               </>
             )}
           </button>
@@ -213,39 +223,44 @@ export function DiffViewer({
             type="button"
             onClick={onDownloadSanitized}
             disabled={!result.sanitizedText}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-400 to-teal-400 px-3.5 py-1.5 text-xs font-semibold text-slate-950 shadow-sm shadow-emerald-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+            className="transition-unslop inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#eef0f5] px-3.5 text-xs font-medium text-[#0b0d14] hover:bg-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38bdf8]"
           >
-            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            <Download size={16} strokeWidth={1.5} aria-hidden="true" />
             <span>Download {downloadFileName}</span>
           </button>
         </div>
       </div>
 
-      {/* Interactive Click-to-Inspect Banner */}
+      {/* Inline Click-to-Inspect Verification Bar */}
       {selectedEntity && (
         <div
           role="status"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-cyan-500/40 bg-cyan-950/35 px-3.5 py-2 text-xs shadow-sm"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#38bdf8]/40 bg-[#1a1e28] px-3 py-2 text-xs"
         >
           <div className="flex flex-wrap items-center gap-2">
-            <Info className="h-4 w-4 text-cyan-300" aria-hidden="true" />
-            <span className="font-semibold text-white">
+            <Info
+              size={16}
+              strokeWidth={1.5}
+              className="text-[#38bdf8]"
+              aria-hidden="true"
+            />
+            <span className="font-medium text-[#eef0f5]">
               {PII_CATEGORY_META[selectedEntity.category].label}
             </span>
             {selectedEntity.validationNote && (
-              <span className="rounded bg-slate-900 px-2 py-0.5 font-mono text-[11px] text-emerald-300">
+              <span className="rounded bg-[#0b0d14] px-2 py-0.5 font-mono text-xs text-[#4cc38a]">
                 {selectedEntity.validationNote}
               </span>
             )}
-            <span className="text-slate-400">Output Token:</span>
-            <code className="rounded bg-slate-900 px-2 py-0.5 font-mono text-cyan-300">
+            <span className="text-[#a3a9b8]">Output token</span>
+            <code className="rounded bg-[#0b0d14] px-2 py-0.5 font-mono text-xs text-[#eef0f5]">
               {selectedEntity.replacement}
             </code>
           </div>
           <button
             type="button"
             onClick={() => setSelectedEntity(null)}
-            className="text-xs text-slate-400 underline hover:text-white"
+            className="text-xs text-[#a3a9b8] hover:text-[#eef0f5]"
           >
             Dismiss
           </button>
@@ -253,31 +268,33 @@ export function DiffViewer({
       )}
 
       {effectiveViewMode === 'table' && csvTables ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-800/90 bg-slate-900/75 ring-1 ring-white/[0.03]">
-          <div className="border-b border-slate-800 bg-slate-950/70 px-4 py-2.5 text-xs font-semibold text-slate-200">
-            Side-by-Side CSV Cell Diff (Original → Sanitized)
+        <div className="overflow-hidden rounded-xl border border-[#eef0f5]/[0.08] bg-[#11141c]">
+          <div className="border-b border-[#eef0f5]/[0.08] bg-[#0b0d14]/60 px-4 py-2 text-xs font-medium text-[#eef0f5]">
+            Side-by-side CSV cell diff
           </div>
-          <div className="custom-scrollbar max-h-96 overflow-auto">
-            <table className="w-full border-collapse text-left font-mono text-xs">
-              <thead className="sticky top-0 z-10 bg-slate-950 text-[11px] text-slate-400">
+          <div className="custom-scrollbar max-h-64 overflow-auto sm:max-h-72">
+            <table className="w-full border-collapse text-left font-mono text-xs tabular-nums">
+              <thead className="sticky top-0 z-10 bg-[#0b0d14] text-xs text-[#a3a9b8]">
                 <tr>
-                  <th className="border-b border-slate-800 px-3 py-2">#</th>
+                  <th className="border-b border-[#eef0f5]/[0.08] px-3 py-2 font-medium">
+                    #
+                  </th>
                   {(csvTables.sanitizedRows[0] ?? []).map((header, idx) => (
                     <th
                       key={idx}
-                      className="border-b border-slate-800 px-3 py-2 font-semibold text-slate-200"
+                      className="border-b border-[#eef0f5]/[0.08] px-3 py-2 font-medium text-[#eef0f5]"
                     >
                       {header}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/70">
+              <tbody className="divide-y divide-[#eef0f5]/[0.06]">
                 {csvTables.sanitizedRows.slice(1).map((row, rIdx) => {
                   const origRow = csvTables.originalRows[rIdx + 1] ?? []
                   return (
-                    <tr key={rIdx} className="hover:bg-slate-800/40">
-                      <td className="px-3 py-2 text-slate-500">{rIdx + 1}</td>
+                    <tr key={rIdx} className="hover:bg-[#1a1e28]/60">
+                      <td className="px-3 py-2 text-[#7a8296]">{rIdx + 1}</td>
                       {row.map((cell, cIdx) => {
                         const origCell = origRow[cIdx] ?? ''
                         const changed = cell !== origCell
@@ -286,8 +303,8 @@ export function DiffViewer({
                             key={cIdx}
                             className={`px-3 py-2 ${
                               changed
-                                ? 'bg-emerald-500/10 text-emerald-200'
-                                : 'text-slate-300'
+                                ? 'bg-[#4cc38a]/10 text-[#eef0f5]'
+                                : 'text-[#a3a9b8]'
                             }`}
                             title={
                               changed ? `Original: ${origCell}` : 'Unchanged'
@@ -307,52 +324,52 @@ export function DiffViewer({
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Left Pane: Original Input / Annotated Highlights */}
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-800/90 bg-slate-900/75 ring-1 ring-white/[0.03]">
-            <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/70 px-4 py-2.5">
+          <div className="flex flex-col overflow-hidden rounded-xl border border-[#eef0f5]/[0.08] bg-[#11141c]">
+            <div className="flex items-center justify-between border-b border-[#eef0f5]/[0.08] bg-[#0b0d14]/50 px-4 py-2">
               <div className="flex items-center gap-2">
                 <span
-                  className="h-2 w-2 rounded-full bg-rose-400"
+                  className="h-1.5 w-1.5 rounded-full bg-[#e5484d]"
                   aria-hidden="true"
                 />
                 <label
                   htmlFor="raw-pii-input"
-                  className="text-xs font-semibold text-slate-200"
+                  className="text-xs font-medium text-[#eef0f5]"
                 >
-                  Original Input
+                  Original input
                 </label>
               </div>
               <div
                 role="tablist"
                 aria-label="Original input view mode"
-                className="inline-flex rounded-lg border border-slate-800 bg-slate-900 p-0.5"
+                className="inline-flex rounded-lg border border-[#eef0f5]/[0.08] bg-[#0b0d14] p-0.5"
               >
                 <button
                   type="button"
                   role="tab"
                   aria-selected={leftTab === 'edit'}
                   onClick={() => setLeftTab('edit')}
-                  className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                  className={`transition-unslop inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ${
                     leftTab === 'edit'
-                      ? 'bg-slate-800 text-white'
-                      : 'text-slate-400 hover:text-slate-200'
+                      ? 'surface-active bg-[#1a1e28] text-[#eef0f5]'
+                      : 'text-[#a3a9b8] hover:text-[#eef0f5]'
                   }`}
                 >
-                  <FileCode2 className="h-3 w-3" aria-hidden="true" />
-                  <span>Edit Text</span>
+                  <FileCode2 size={16} strokeWidth={1.5} aria-hidden="true" />
+                  <span>Edit text</span>
                 </button>
                 <button
                   type="button"
                   role="tab"
                   aria-selected={leftTab === 'highlights'}
                   onClick={() => setLeftTab('highlights')}
-                  className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                  className={`transition-unslop inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ${
                     leftTab === 'highlights'
-                      ? 'bg-cyan-500/20 text-cyan-200'
-                      : 'text-slate-400 hover:text-slate-200'
+                      ? 'surface-active bg-[#1a1e28] text-[#eef0f5]'
+                      : 'text-[#a3a9b8] hover:text-[#eef0f5]'
                   }`}
                 >
-                  <Eye className="h-3 w-3" aria-hidden="true" />
-                  <span>PII Highlights ({result.totalEntities})</span>
+                  <Eye size={16} strokeWidth={1.5} aria-hidden="true" />
+                  <span>PII highlights ({result.totalEntities})</span>
                 </button>
               </div>
             </div>
@@ -362,16 +379,16 @@ export function DiffViewer({
                 id="raw-pii-input"
                 value={rawInput}
                 onChange={(e) => onRawInputChange(e.target.value)}
-                placeholder="Paste raw logs, resumes, support tickets, clinical notes, or CSV rows here — everything stays 100% in your browser..."
+                placeholder="Paste raw logs, resumes, support tickets, clinical notes, or CSV rows"
                 spellCheck={false}
-                className="custom-scrollbar h-72 w-full resize-y bg-transparent p-4 font-mono text-[13px] leading-relaxed text-slate-100 placeholder:text-slate-500 focus:outline-none sm:h-80"
+                className="custom-scrollbar h-52 w-full resize-y bg-transparent p-4 font-mono text-[13px] leading-relaxed text-[#eef0f5] placeholder:text-[#7a8296] focus:outline-none sm:h-64"
               />
             ) : (
               <div
                 ref={leftScrollRef}
                 onScroll={() => handleSyncScroll('left')}
                 aria-label="Original text with detected PII highlighted"
-                className="custom-scrollbar h-72 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-slate-200 sm:h-80"
+                className="custom-scrollbar h-52 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-[#eef0f5] sm:h-64"
               >
                 {renderHighlightedSegments(
                   result.originalSegments,
@@ -382,29 +399,31 @@ export function DiffViewer({
               </div>
             )}
 
-            <div className="flex items-center justify-between border-t border-slate-800/80 bg-slate-950/50 px-4 py-1.5 font-mono text-[11px] text-slate-500">
-              <span>{lineCount} lines • {rawInput.length} chars</span>
-              <span>Local browser memory only</span>
+            <div className="flex items-center justify-between border-t border-[#eef0f5]/[0.06] bg-[#0b0d14]/40 px-4 py-1.5 font-mono text-xs tabular-nums text-[#7a8296]">
+              <span>
+                {lineCount} lines · {rawInput.length} chars
+              </span>
+              <span>Browser memory only</span>
             </div>
           </div>
 
           {/* Right Pane: Sanitized Diff Output */}
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-800/90 bg-slate-900/75 ring-1 ring-white/[0.03]">
-            <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/70 px-4 py-2.5">
+          <div className="flex flex-col overflow-hidden rounded-xl border border-[#eef0f5]/[0.08] bg-[#11141c]">
+            <div className="flex items-center justify-between border-b border-[#eef0f5]/[0.08] bg-[#0b0d14]/50 px-4 py-2">
               <div className="flex items-center gap-2">
                 <span
-                  className="h-2 w-2 rounded-full bg-emerald-400"
+                  className="h-1.5 w-1.5 rounded-full bg-[#4cc38a]"
                   aria-hidden="true"
                 />
-                <span className="text-xs font-semibold text-emerald-300">
-                  Sanitized Output (Click badge to inspect)
+                <span className="text-xs font-medium text-[#eef0f5]">
+                  Sanitized output
                 </span>
               </div>
               <span
                 aria-live="polite"
-                className="font-mono text-[11px] text-slate-400"
+                className="font-mono text-xs tabular-nums text-[#a3a9b8]"
               >
-                {result.totalEntities} redacted in {result.processingMs} ms
+                {result.totalEntities} redacted · {result.processingMs} ms
               </span>
             </div>
 
@@ -412,7 +431,7 @@ export function DiffViewer({
               ref={rightScrollRef}
               onScroll={() => handleSyncScroll('right')}
               aria-label="Sanitized output diff preview"
-              className="custom-scrollbar h-72 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-slate-100 sm:h-80"
+              className="custom-scrollbar h-52 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-[#eef0f5] sm:h-64"
             >
               {renderHighlightedSegments(
                 result.sanitizedSegments,
@@ -422,9 +441,9 @@ export function DiffViewer({
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-800/80 bg-slate-950/50 px-4 py-1.5 font-mono text-[11px] text-slate-500">
+            <div className="flex items-center justify-between border-t border-[#eef0f5]/[0.06] bg-[#0b0d14]/40 px-4 py-1.5 font-mono text-xs tabular-nums text-[#7a8296]">
               <span>{result.sanitizedText.length} sanitized chars</span>
-              <span className="text-emerald-400/90">Safe to share / export</span>
+              <span>Click any badge to inspect</span>
             </div>
           </div>
         </div>

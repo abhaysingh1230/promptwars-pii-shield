@@ -1,5 +1,5 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
-import { FileText, Sparkles, Trash2, Upload } from 'lucide-react'
+import { FileText, Trash2, Upload } from 'lucide-react'
 import { SAMPLE_DATASETS, type SampleDataset } from '../data/samples'
 import {
   ALL_CATEGORIES,
@@ -29,21 +29,9 @@ const MODE_OPTIONS: ReadonlyArray<{
   label: string
   hint: string
 }> = [
-  {
-    id: 'full',
-    label: 'Full Mask',
-    hint: '[REDACTED]',
-  },
-  {
-    id: 'partial',
-    label: 'Partial Mask',
-    hint: 'XXXX-XXXX-1234',
-  },
-  {
-    id: 'pseudonym',
-    label: 'Consistent Pseudonym',
-    hint: 'EMAIL_01 / CARD_01',
-  },
+  { id: 'full', label: 'Full mask', hint: '[REDACTED]' },
+  { id: 'partial', label: 'Partial mask', hint: 'XXXX-XXXX-1234' },
+  { id: 'pseudonym', label: 'Consistent pseudonym', hint: 'EMAIL_01' },
 ]
 
 export function ControlsBar({
@@ -83,36 +71,38 @@ export function ControlsBar({
   return (
     <section
       aria-label="Sanitization Controls and Sample Loader"
-      className="space-y-3.5 rounded-2xl border border-slate-800/90 bg-slate-900/65 p-4 ring-1 ring-white/[0.03] backdrop-blur sm:p-5"
+      className="space-y-3 rounded-xl border border-[#eef0f5]/[0.08] bg-[#11141c] p-4"
     >
-      {/* Top Row: Sample Loader + File Upload */}
+      {/* Row 1: Sample presets + File upload */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            <Sparkles className="h-3.5 w-3.5 text-amber-300" aria-hidden="true" />
-            <span>1-Click Sample Noisy Datasets</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {SAMPLE_DATASETS.map((sample) => {
-              const isLoaded = activeFileName === `${sample.id}.${sample.format}`
-              return (
-                <button
-                  key={sample.id}
-                  type="button"
-                  onClick={() => onLoadSample(sample)}
-                  title={sample.description}
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
-                    isLoaded
-                      ? 'border-cyan-400/70 bg-cyan-500/15 text-cyan-200'
-                      : 'border-slate-700/80 bg-slate-950/80 text-slate-200 hover:border-cyan-500/50 hover:bg-slate-800/80'
-                  }`}
-                >
-                  <FileText className="h-3.5 w-3.5 text-cyan-400" aria-hidden="true" />
-                  <span>{sample.name}</span>
-                </button>
-              )
-            })}
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-xs font-medium text-[#a3a9b8]">
+            Sample datasets
+          </span>
+          {SAMPLE_DATASETS.map((sample) => {
+            const isLoaded = activeFileName === `${sample.id}.${sample.format}`
+            return (
+              <button
+                key={sample.id}
+                type="button"
+                onClick={() => onLoadSample(sample)}
+                title={sample.description}
+                className={`transition-unslop inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-medium active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38bdf8] ${
+                  isLoaded
+                    ? 'surface-active border-[#38bdf8]/50 bg-[#1a1e28] text-[#eef0f5]'
+                    : 'border-[#eef0f5]/[0.08] bg-[#0b0d14] text-[#a3a9b8] hover:border-[#eef0f5]/20 hover:text-[#eef0f5]'
+                }`}
+              >
+                <FileText
+                  size={16}
+                  strokeWidth={1.5}
+                  className="text-[#7a8296]"
+                  aria-hidden="true"
+                />
+                <span>{sample.name}</span>
+              </button>
+            )
+          })}
         </div>
 
         <div
@@ -122,10 +112,10 @@ export function ControlsBar({
           }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
-          className={`flex flex-wrap items-center gap-2 rounded-xl border border-dashed px-3 py-2 transition ${
+          className={`transition-unslop flex flex-wrap items-center gap-2 rounded-lg border border-dashed px-3 py-1.5 ${
             isDragging
-              ? 'border-cyan-400 bg-cyan-500/10'
-              : 'border-slate-700/90 bg-slate-950/60'
+              ? 'border-[#38bdf8] bg-[#1a1e28]'
+              : 'border-[#eef0f5]/[0.12] bg-[#0b0d14]'
           }`}
         >
           <input
@@ -139,27 +129,23 @@ export function ControlsBar({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-400 to-sky-400 px-3 py-1.5 text-xs font-semibold text-slate-950 shadow-sm shadow-cyan-500/20 transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+            className="transition-unslop inline-flex h-8 items-center gap-2 rounded-md bg-[#eef0f5] px-3 text-xs font-medium text-[#0b0d14] hover:bg-white active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38bdf8]"
           >
-            <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+            <Upload size={16} strokeWidth={1.5} aria-hidden="true" />
             <span>Upload .txt / .csv</span>
           </button>
 
-          <span className="text-xs text-slate-400">
-            {activeFileName ? (
-              <span className="font-mono text-cyan-300">{activeFileName}</span>
-            ) : (
-              'or drop file (max 5 MB)'
-            )}
+          <span className="font-mono text-xs text-[#7a8296]">
+            {activeFileName ?? 'Max 5 MB'}
           </span>
 
           <button
             type="button"
             onClick={onClear}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-700/90 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-rose-500/50 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
             aria-label="Clear input text"
+            className="transition-unslop inline-flex h-8 items-center gap-1.5 rounded-md border border-[#eef0f5]/[0.08] bg-[#1a1e28] px-2.5 text-xs font-medium text-[#a3a9b8] hover:text-[#eef0f5] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38bdf8]"
           >
-            <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+            <Trash2 size={16} strokeWidth={1.5} aria-hidden="true" />
             <span>Clear</span>
           </button>
         </div>
@@ -168,21 +154,21 @@ export function ControlsBar({
       {uploadError && (
         <div
           role="alert"
-          className="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200"
+          className="rounded-lg border border-[#e5484d]/40 bg-[#e5484d]/10 px-3 py-2 text-xs text-[#eef0f5]"
         >
           {uploadError}
         </div>
       )}
 
-      {/* Bottom Row: Redaction Modes + Category Toggles */}
-      <div className="grid gap-3.5 border-t border-slate-800/80 pt-3.5 lg:grid-cols-12">
+      {/* Row 2: Redaction mode + Active detectors */}
+      <div className="grid gap-3 border-t border-[#eef0f5]/[0.08] pt-3 lg:grid-cols-12 lg:items-center">
         <div className="space-y-1.5 lg:col-span-5">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-              Redaction Mode
+            <span className="text-xs font-medium text-[#a3a9b8]">
+              Redaction mode
             </span>
             {mode === 'full' && (
-              <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-slate-400">
+              <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[#a3a9b8]">
                 <input
                   type="checkbox"
                   checked={fullMaskStyle === 'typed'}
@@ -191,7 +177,7 @@ export function ControlsBar({
                       e.target.checked ? 'typed' : 'generic'
                     )
                   }
-                  className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 text-cyan-500 focus:ring-cyan-400"
+                  className="h-3.5 w-3.5 rounded border-[#eef0f5]/20 bg-[#0b0d14] accent-[#38bdf8]"
                 />
                 <span>Include type tags</span>
               </label>
@@ -211,14 +197,14 @@ export function ControlsBar({
                   type="button"
                   aria-pressed={active}
                   onClick={() => onModeChange(opt.id)}
-                  className={`flex flex-col items-start rounded-xl border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                  className={`transition-unslop flex min-h-10 flex-col items-start justify-center rounded-lg border px-3 py-1.5 text-left active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38bdf8] ${
                     active
-                      ? 'border-cyan-400/80 bg-cyan-500/15 text-white shadow-sm shadow-cyan-500/15'
-                      : 'border-slate-800 bg-slate-950/60 text-slate-300 hover:border-slate-700 hover:bg-slate-900'
+                      ? 'surface-active border-[#38bdf8]/60 bg-[#1a1e28] text-[#eef0f5]'
+                      : 'border-[#eef0f5]/[0.08] bg-[#0b0d14] text-[#a3a9b8] hover:border-[#eef0f5]/20 hover:text-[#eef0f5]'
                   }`}
                 >
-                  <span className="text-xs font-semibold">{opt.label}</span>
-                  <span className="mt-0.5 font-mono text-[10px] text-slate-400">
+                  <span className="text-xs font-medium">{opt.label}</span>
+                  <span className="font-mono text-xs text-[#7a8296]">
                     {opt.hint}
                   </span>
                 </button>
@@ -228,8 +214,8 @@ export function ControlsBar({
         </div>
 
         <div className="space-y-1.5 lg:col-span-7">
-          <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-            Active PII Detectors (Click to Toggle)
+          <span className="block text-xs font-medium text-[#a3a9b8]">
+            Active detectors
           </span>
           <div className="flex flex-wrap gap-1.5">
             {ALL_CATEGORIES.map((cat) => {
@@ -243,20 +229,18 @@ export function ControlsBar({
                   aria-pressed={enabled}
                   onClick={() => onToggleCategory(cat)}
                   title={meta.description}
-                  className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                  className={`transition-unslop inline-flex h-9 items-center gap-2 rounded-lg border px-2.5 text-xs font-medium active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38bdf8] ${
                     enabled
                       ? meta.badgeClass
-                      : 'border-slate-800 bg-slate-950/50 text-slate-500 line-through'
+                      : 'border-[#eef0f5]/[0.06] bg-[#0b0d14] text-[#7a8296] line-through opacity-60'
                   }`}
                 >
-                  <span>{meta.label}</span>
                   <span
-                    className={`rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold ${
-                      enabled
-                        ? 'bg-slate-950/70 text-white'
-                        : 'bg-slate-900 text-slate-500'
-                    }`}
-                  >
+                    className={`h-1.5 w-1.5 rounded-full ${meta.dotClass}`}
+                    aria-hidden="true"
+                  />
+                  <span>{meta.label}</span>
+                  <span className="font-mono text-xs tabular-nums text-[#a3a9b8]">
                     {count}
                   </span>
                 </button>
