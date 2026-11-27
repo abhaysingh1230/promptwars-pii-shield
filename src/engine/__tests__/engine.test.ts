@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { SAMPLE_DATASETS } from '../../data/samples'
+import { assessPrivacyRisk } from '../compliance'
+import {
+  decryptVaultMappings,
+  encryptVaultMappings,
+  rehydratePseudonyms,
+} from '../cryptoVault'
 import { sanitizeCsvDocument, parseCsv, serializeCsv } from '../csv'
-import { sanitizeText } from '../detector'
+import { sanitizeText, validateCustomRegex } from '../detector'
 import { DEFAULT_ENABLED_CATEGORIES, type SanitizeOptions } from '../types'
 import {
   describePanType,
@@ -9,6 +15,7 @@ import {
   isValidIpv4,
   isValidIpv6,
   luhnCheck,
+  luhnDiagnostics,
   verhoeffCheck,
 } from '../validators'
 
@@ -171,5 +178,72 @@ describe('CSV sanitization and sample datasets', () => {
       expect(res.totalEntities).toBeGreaterThan(0)
       expect(res.luhnRejected.length).toBeGreaterThan(0)
     }
+  })
+})
+
+describe('compliance scoring, custom rules, and crypto vault', () => {
+  it('computes Luhn sum diagnostics and compliance exposure scores', () => {
+    const valid = luhnDiagnostics('4111111111111111')
+    expect(valid.valid).toBe(true)
+    expect(valid.remainder).toBe(0)
+
+    const fake = luhnDiagnostics('1234567890123456')
+    expect(fake.valid).toBe(false)
+    expect(fake.remainder).toBeGreaterThan(0)
+
+    const res = sanitizeText(SAMPLE_DATASETS[0].content, baseOptions)
+    const assessment = assessPrivacyRisk(res)
+    expect(assessment.rawRiskScore).toBeGreaterThanOrEqual(75)
+    expect(assessment.sanitizedRiskScore).toBe(0)
+    expect(assessment.severityLabel).toBe('Critical')
+  })
+
+  it('safely validates and applies custom regex rules', () => {
+    expect(validateCustomRegex('')).not.toBeNull()
+    expect(validateCustomRegex('.*')).not.toBeNull()
+    expect(validateCustomRegex('[unclosed')).not.toBeNull()
+    expect(validateCustomRegex('\\bSBIN0001234\\b')).toBeNull()
+
+    const res = sanitizeText('Transfer to IFSC SBIN0001234 ASAP', {
+      ...baseOptions,
+      mode: 'pseudonym',
+      customRules: [
+        {
+          id: 'ifsc',
+          label: 'Indian IFSC',
+          pattern: '\\b[A-Z]{4}0[A-Z0-9]{6}\\b',
+          tokenPrefix: 'IFSC',
+          enabled: true,
+        },
+      ],
+    })
+
+    expect(res.countsByCategory.custom).toBe(1)
+    expect(res.sanitizedText).toContain('SECRET_01')
+  })
+
+  it('re-hydrates pseudonyms and round-trips AES-GCM encrypted vault keys', async () => {
+    const restored = rehydratePseudonyms(
+      'Follow up with EMAIL_01 regarding CARD_01 and EMAIL_01.',
+      [
+        { pseudonym: 'EMAIL_01', originalValue: 'alice@corp.in' },
+        { pseudonym: 'CARD_01', originalValue: '4111-1111-1111-1111' },
+      ]
+    )
+
+    expect(restored.replacementsApplied).toBe(3)
+    expect(restored.restoredText).toBe(
+      'Follow up with alice@corp.in regarding 4111-1111-1111-1111 and alice@corp.in.'
+    )
+
+    const payload = await encryptVaultMappings(
+      [{ pseudonym: 'EMAIL_01', originalValue: 'alice@corp.in' }],
+      'strong-passphrase'
+    )
+    expect(payload.algorithm).toBe('AES-GCM-256')
+    const decrypted = await decryptVaultMappings(payload, 'strong-passphrase')
+    expect(decrypted).toEqual([
+      { pseudonym: 'EMAIL_01', originalValue: 'alice@corp.in' },
+    ])
   })
 })

@@ -6,6 +6,7 @@ import {
 import {
   ALL_CATEGORIES,
   PII_CATEGORY_META,
+  type CustomRule,
   type DiffSegment,
   type LuhnRejectedCandidate,
   type PiiCandidate,
@@ -19,7 +20,7 @@ import {
   detectCardBrand,
   isValidIpv4,
   isValidIpv6,
-  luhnCheck,
+  luhnDiagnostics,
   verhoeffCheck,
 } from './validators'
 
@@ -51,12 +52,33 @@ function createEmptyCounts(): Record<PiiCategory, number> {
     email: 0,
     phone: 0,
     ip_address: 0,
+    custom: 0,
+  }
+}
+
+/**
+ * Validates a user-supplied custom regex pattern before compiling.
+ * Returns null if valid, or a human-readable error message.
+ */
+export function validateCustomRegex(pattern: string): string | null {
+  const trimmed = pattern.trim()
+  if (!trimmed) return 'Pattern cannot be empty.'
+  if (trimmed.length > 240) return 'Pattern exceeds 240-character safety limit.'
+  try {
+    const compiled = new RegExp(trimmed, 'g')
+    if (compiled.test('')) {
+      return 'Pattern must not match empty strings.'
+    }
+    return null
+  } catch (err) {
+    return err instanceof Error ? err.message : 'Invalid regular expression.'
   }
 }
 
 function collectPatternCandidates(
   text: string,
-  enabledCategories: Record<PiiCategory, boolean>
+  enabledCategories: Record<PiiCategory, boolean>,
+  customRules: CustomRule[] = []
 ): RawDetectionOutput {
   const candidates: PiiCandidate[] = []
   const luhnRejected: LuhnRejectedCandidate[] = []
@@ -72,7 +94,8 @@ function collectPatternCandidates(
       // Ignore 13+ digit spans that are clearly hyphenated timestamps/dates
       if (/^\d{4}-\d{2}-\d{2}/.test(raw)) continue
 
-      if (luhnCheck(digits)) {
+      const luhn = luhnDiagnostics(digits)
+      if (luhn.valid) {
         candidates.push({
           category: 'credit_card',
           raw,
@@ -80,7 +103,7 @@ function collectPatternCandidates(
           start: match.index,
           end: match.index + raw.length,
           confidence: 'high',
-          validationNote: `${detectCardBrand(digits)} • Luhn verified`,
+          validationNote: `${detectCardBrand(digits)} • Luhn sum ${luhn.sum} (mod 10 = 0)`,
         })
       } else {
         luhnRejected.push({
@@ -88,7 +111,10 @@ function collectPatternCandidates(
           digits,
           start: match.index,
           end: match.index + raw.length,
-          reason: 'Failed Luhn mod-10 checksum',
+          reason:
+            luhn.remainder >= 0
+              ? `Failed Luhn mod-10 (sum ${luhn.sum}, rem ${luhn.remainder})`
+              : 'Failed Luhn mod-10 checksum',
         })
       }
     }
@@ -205,6 +231,33 @@ function collectPatternCandidates(
     }
   }
 
+  if (enabledCategories.custom && customRules.length > 0) {
+    for (const rule of customRules) {
+      if (!rule.enabled) continue
+      if (validateCustomRegex(rule.pattern) !== null) continue
+      const regex = new RegExp(rule.pattern, 'g')
+      let match: RegExpExecArray | null
+      let guard = 0
+      while ((match = regex.exec(text)) !== null && guard < 5000) {
+        guard += 1
+        const raw = match[0]
+        if (!raw) {
+          regex.lastIndex += 1
+          continue
+        }
+        candidates.push({
+          category: 'custom',
+          raw,
+          normalized: raw,
+          start: match.index,
+          end: match.index + raw.length,
+          confidence: 'medium',
+          validationNote: `Custom Rule: ${rule.label}`,
+        })
+      }
+    }
+  }
+
   return { candidates, luhnRejected }
 }
 
@@ -283,7 +336,8 @@ export function sanitizeText(
   const registry = sharedRegistry ?? new PseudonymRegistry()
   const { candidates, luhnRejected } = collectPatternCandidates(
     safeText,
-    options.enabledCategories
+    options.enabledCategories,
+    options.customRules ?? []
   )
   const resolved = resolveOverlaps(candidates)
   const cleanLuhnRejected = filterLuhnRejected(luhnRejected, resolved)

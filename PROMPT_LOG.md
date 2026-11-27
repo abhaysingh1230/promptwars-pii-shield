@@ -46,3 +46,15 @@
 - Added automated unit and UI component tests (`src/engine/__tests__/engine.test.ts` and `src/App.test.tsx`).
 - Added optional on-device Chrome Built-in AI (`Gemini Nano` / `LanguageModel`) summary over aggregate counts only (`src/engine/chromeAi.ts`).
 - Configured multi-stage `Dockerfile` (`nginx.conf.template` listening on `$PORT=8080`) for Google Cloud Run and `firebase.json` for Firebase Hosting.
+
+---
+
+## Prompt Iteration 5 — Differentiator Enterprise Features (Round-Trip Vault, CSV Table Diff, Risk Gauge & Custom Rules)
+**Prompt Goal:**  
+> Elevate the tool beyond basic redaction into a complete client-side privacy gateway: add a compliance risk gauge (`PCI-DSS`, `India DPDP / UIDAI`, `GDPR`), interactive CSV spreadsheet diff table, click-to-inspect mathematical Luhn/Verhoeff proof, custom regex secret builder, and Web Crypto `AES-GCM-256` local pseudonym vault with round-trip de-pseudonymization.
+
+**Key Additions:**
+- `src/engine/compliance.ts`: Real-time exposure scoring (`0–100` before → `0/100` sanitized) + `MB/s` scan throughput.
+- `src/engine/cryptoVault.ts`: Local `PBKDF2-SHA256` + `AES-GCM-256` encrypted vault export + `rehydratePseudonyms()` so users can sanitize prompts, send safely to an LLM, and restore original identifiers locally.
+- `src/components/DiffViewer.tsx`: Added CSV Table Diff view, Synchronized Scroll, and Click-to-Inspect entity verification banner.
+- `src/components/VaultAndCustomPanel.tsx`: Custom secret rule presets (`Indian IFSC`, `API Keys`, `Employee ID`) with ReDoS/empty-match guards.

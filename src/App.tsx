@@ -1,19 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AuditPanel } from './components/AuditPanel'
+import { ComplianceBanner } from './components/ComplianceBanner'
 import { ControlsBar } from './components/ControlsBar'
 import { DiffViewer } from './components/DiffViewer'
 import { Header } from './components/Header'
 import { PromptLogModal } from './components/PromptLogModal'
+import { VaultAndCustomPanel } from './components/VaultAndCustomPanel'
 import { SAMPLE_DATASETS, type SampleDataset } from './data/samples'
 import {
   detectOnDeviceAiStatus,
   generateOnDevicePrivacySummary,
   type OnDeviceAdviceResult,
 } from './engine/chromeAi'
+import { assessPrivacyRisk } from './engine/compliance'
 import { sanitizeCsvDocument } from './engine/csv'
 import { sanitizeText } from './engine/detector'
 import {
   DEFAULT_ENABLED_CATEGORIES,
+  type CustomRule,
   type FullMaskStyle,
   type PiiCategory,
   type RedactionMode,
@@ -47,6 +51,7 @@ export function App() {
   const [enabledCategories, setEnabledCategories] = useState<
     Record<PiiCategory, boolean>
   >({ ...DEFAULT_ENABLED_CATEGORIES })
+  const [customRules, setCustomRules] = useState<CustomRule[]>([])
   const [promptLogOpen, setPromptLogOpen] = useState(false)
   const [onDeviceAiStatus, setOnDeviceAiStatus] = useState<
     'available' | 'unavailable'
@@ -60,11 +65,14 @@ export function App() {
       enabledCategories,
       fullMaskStyle,
       isCsv: inputFormat === 'csv',
+      customRules,
     }
     return inputFormat === 'csv'
       ? sanitizeCsvDocument(rawInput, options)
       : sanitizeText(rawInput, options)
-  }, [rawInput, inputFormat, mode, enabledCategories, fullMaskStyle])
+  }, [rawInput, inputFormat, mode, enabledCategories, fullMaskStyle, customRules])
+
+  const complianceAssessment = useMemo(() => assessPrivacyRisk(result), [result])
 
   useEffect(() => {
     let cancelled = false
@@ -108,7 +116,12 @@ export function App() {
       source: 'local-engine',
       summary: `${complianceNote}${luhnNote} All ${total} entities were sanitized in-browser under "${mode}" mode with zero server transmission.`,
     }
-  }, [result.countsByCategory, result.totalEntities, result.luhnRejected.length, mode])
+  }, [
+    result.countsByCategory,
+    result.totalEntities,
+    result.luhnRejected.length,
+    mode,
+  ])
 
   useEffect(() => {
     if (onDeviceAiStatus !== 'available') {
@@ -190,6 +203,20 @@ export function App() {
     setRawInput('')
   }
 
+  function handleAddCustomRule(rule: CustomRule) {
+    setCustomRules((prev) => [...prev, rule])
+  }
+
+  function handleToggleCustomRule(id: string) {
+    setCustomRules((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r))
+    )
+  }
+
+  function handleDeleteCustomRule(id: string) {
+    setCustomRules((prev) => prev.filter((r) => r.id !== id))
+  }
+
   const downloadFileName = activeFileName
     ? activeFileName.replace(/\.(txt|csv)$/i, '.sanitized.$1')
     : inputFormat === 'csv'
@@ -210,6 +237,8 @@ export function App() {
       executionMode: '100% client-side (zero external transmission)',
       redactionMode: mode,
       inputFormat,
+      riskScoreBefore: complianceAssessment.rawRiskScore,
+      riskScoreAfter: complianceAssessment.sanitizedRiskScore,
       totalEntitiesRedacted: result.totalEntities,
       countsByCategory: result.countsByCategory,
       luhnFalsePositivesRejected: result.luhnRejected.map((r) => ({
@@ -248,6 +277,8 @@ export function App() {
         id="main-content"
         className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6"
       >
+        <ComplianceBanner assessment={complianceAssessment} />
+
         <ControlsBar
           mode={mode}
           onModeChange={setMode}
@@ -276,6 +307,15 @@ export function App() {
           mode={mode}
           privacyAdvice={activePrivacyAdvice}
           onDownloadAuditJson={handleDownloadAuditJson}
+        />
+
+        <VaultAndCustomPanel
+          result={result}
+          mode={mode}
+          customRules={customRules}
+          onAddCustomRule={handleAddCustomRule}
+          onToggleCustomRule={handleToggleCustomRule}
+          onDeleteCustomRule={handleDeleteCustomRule}
         />
       </main>
 

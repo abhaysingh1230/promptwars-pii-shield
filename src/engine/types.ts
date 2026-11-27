@@ -5,10 +5,21 @@ export type PiiCategory =
   | 'email'
   | 'phone'
   | 'ip_address'
+  | 'custom'
+
+export type BuiltinPiiCategory = Exclude<PiiCategory, 'custom'>
 
 export type RedactionMode = 'full' | 'partial' | 'pseudonym'
 
 export type FullMaskStyle = 'generic' | 'typed'
+
+export interface CustomRule {
+  id: string
+  label: string
+  pattern: string
+  tokenPrefix: string
+  enabled: boolean
+}
 
 export interface CategoryMeta {
   id: PiiCategory
@@ -22,6 +33,16 @@ export interface CategoryMeta {
 }
 
 export const ALL_CATEGORIES: readonly PiiCategory[] = [
+  'credit_card',
+  'pan',
+  'aadhaar',
+  'email',
+  'phone',
+  'ip_address',
+  'custom',
+] as const
+
+export const BUILTIN_CATEGORIES: readonly BuiltinPiiCategory[] = [
   'credit_card',
   'pan',
   'aadhaar',
@@ -91,6 +112,16 @@ export const PII_CATEGORY_META: Record<PiiCategory, CategoryMeta> = {
     redactedClass: 'bg-cyan-950/70 text-cyan-200 border border-cyan-500/40',
     description: 'Indian (+91 / 10-digit) and international telephone numbers',
   },
+  custom: {
+    id: 'custom',
+    label: 'Custom Rules',
+    shortLabel: 'CUSTOM',
+    priority: 7,
+    badgeClass: 'bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/40',
+    highlightClass: 'bg-fuchsia-500/20 text-fuchsia-200 border-b-2 border-fuchsia-400',
+    redactedClass: 'bg-fuchsia-950/70 text-fuchsia-200 border border-fuchsia-500/40',
+    description: 'User-defined client-side regex rules (API keys, IFSC, employee IDs)',
+  },
 }
 
 export const DEFAULT_ENABLED_CATEGORIES: Record<PiiCategory, boolean> = {
@@ -100,6 +131,7 @@ export const DEFAULT_ENABLED_CATEGORIES: Record<PiiCategory, boolean> = {
   email: true,
   phone: true,
   ip_address: true,
+  custom: true,
 }
 
 export interface PiiCandidate {
@@ -144,6 +176,7 @@ export interface SanitizeOptions {
   enabledCategories: Record<PiiCategory, boolean>
   fullMaskStyle?: FullMaskStyle
   isCsv?: boolean
+  customRules?: CustomRule[]
 }
 
 export interface SanitizeResult {

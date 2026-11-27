@@ -12,6 +12,7 @@ const PSEUDONYM_PREFIX: Record<PiiCategory, string> = {
   aadhaar: 'AADHAAR',
   ip_address: 'IP',
   phone: 'PHONE',
+  custom: 'SECRET',
 }
 
 /**
@@ -26,6 +27,8 @@ export function normalizeEntityKey(category: PiiCategory, raw: string): string {
       return raw.trim().toLowerCase()
     case 'pan':
       return raw.trim().toUpperCase()
+    case 'custom':
+      return raw.trim()
     case 'credit_card':
     case 'aadhaar':
       return raw.replace(/\D/g, '')
@@ -106,6 +109,10 @@ export function maskPartial(category: PiiCategory, raw: string): string {
       const octets = raw.split('.')
       return `${octets[0]}.${octets[1]}.***.***`
     }
+    case 'custom': {
+      if (raw.length <= 4) return '****'
+      return `${raw.slice(0, 2)}${'*'.repeat(Math.min(8, raw.length - 4))}${raw.slice(-2)}`
+    }
   }
 }
 
@@ -120,6 +127,7 @@ export class PseudonymRegistry {
     aadhaar: 0,
     ip_address: 0,
     phone: 0,
+    custom: 0,
   }
 
   private readonly map = new Map<string, PseudonymMapping>()

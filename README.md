@@ -19,8 +19,11 @@
   1. **Full Mask:** `[REDACTED]` (with optional typed tags `[REDACTED_EMAIL]`)
   2. **Partial Mask:** Preserves trailing/structural context (`XXXX-XXXX-1234`, `a***@domain.com`, `192.168.***.***`)
   3. **Consistent Pseudonymization:** Recurring entities map deterministically to the same token (`EMAIL_01`, `PHONE_01`, `CARD_01`) across entire documents and CSV tables
-- **Audit & Export:**
-  - Live side-by-side color-coded diff view
+- **Audit, Risk Scoring & Export:**
+  - Live **Exposure Risk Gauge** (`PCI-DSS`, `India DPDP / UIDAI / PAN`, `GDPR Contact`) & scan throughput (`MB/s`)
+  - Live side-by-side color-coded diff view with **Synchronized Scroll**, **Click-to-Inspect** Luhn/Verhoeff proofs, and **CSV Spreadsheet Table Diff** mode
+  - **Custom Secret & Regex Rule Builder** with 1-click presets (`Indian IFSC`, `API Keys`, `Employee ID`)
+  - **Round-Trip Re-Hydration & AES-GCM-256 Local Vault** (`window.crypto.subtle`) for safely restoring pseudonymized LLM outputs locally
   - Per-category entity counts & **Luhn False-Positive Prevention log**
   - **1-click Sample Noisy Datasets** (4 presets including logs, CSV, clinical notes, KYC)
   - **1-click Download** for sanitized `.txt` / `.csv` files + safe `.json` audit summary

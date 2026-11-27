@@ -34,6 +34,13 @@ const PROMPT_LOG_STEPS = [
     outcome:
       'Shipped accessible React UI, Vitest unit/UI tests, optional on-device Chrome Gemini Nano advisory, and Nginx Dockerfile on port 8080 for Cloud Run.',
   },
+  {
+    phase: '5. Enterprise Privacy Gateway Upgrades',
+    prompt:
+      'Add PCI-DSS / India DPDP risk scoring, interactive CSV table diff, click-to-inspect Luhn math proofs, custom secret rules, and AES-GCM-256 local pseudonym restoration.',
+    outcome:
+      'Implemented compliance.ts, cryptoVault.ts (Web Crypto PBKDF2 + AES-GCM), CSV table diff view, and round-trip re-hydration workbench.',
+  },
 ] as const
 
 export function PromptLogModal({ open, onClose }: PromptLogModalProps) {

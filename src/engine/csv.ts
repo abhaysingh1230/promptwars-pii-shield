@@ -97,6 +97,7 @@ export function sanitizeCsvDocument(
     email: 0,
     phone: 0,
     ip_address: 0,
+    custom: 0,
   }
 
   const allEntities: PiiEntity[] = []

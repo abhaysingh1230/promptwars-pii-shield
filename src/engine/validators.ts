@@ -41,16 +41,16 @@ const PAN_ENTITY_TYPES: Record<string, string> = {
 }
 
 /**
- * Validates a payment card digit string (13–19 digits) using the Luhn mod-10 algorithm.
- * Rejects trivial all-identical-digit sequences (e.g., 0000000000000000).
+ * Computes Luhn mod-10 sum and validity for 13–19 digit sequences.
  */
-export function luhnCheck(rawDigits: string): boolean {
+export function luhnDiagnostics(rawDigits: string): {
+  valid: boolean
+  sum: number
+  remainder: number
+} {
   const digits = rawDigits.replace(/\D/g, '')
-  if (digits.length < 13 || digits.length > 19) {
-    return false
-  }
-  if (/^(\d)\1+$/.test(digits)) {
-    return false
+  if (digits.length < 13 || digits.length > 19 || /^(\d)\1+$/.test(digits)) {
+    return { valid: false, sum: 0, remainder: -1 }
   }
 
   let sum = 0
@@ -59,7 +59,7 @@ export function luhnCheck(rawDigits: string): boolean {
   for (let i = digits.length - 1; i >= 0; i--) {
     let digit = digits.charCodeAt(i) - 48
     if (digit < 0 || digit > 9) {
-      return false
+      return { valid: false, sum: 0, remainder: -1 }
     }
     if (shouldDouble) {
       digit *= 2
@@ -71,7 +71,16 @@ export function luhnCheck(rawDigits: string): boolean {
     shouldDouble = !shouldDouble
   }
 
-  return sum % 10 === 0
+  const remainder = sum % 10
+  return { valid: remainder === 0, sum, remainder }
+}
+
+/**
+ * Validates a payment card digit string (13–19 digits) using the Luhn mod-10 algorithm.
+ * Rejects trivial all-identical-digit sequences (e.g., 0000000000000000).
+ */
+export function luhnCheck(rawDigits: string): boolean {
+  return luhnDiagnostics(rawDigits).valid
 }
 
 /**

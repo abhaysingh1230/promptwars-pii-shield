@@ -33,7 +33,7 @@ describe('PII Shield UI', () => {
     )
   })
 
-  it('loads 1-click CSV sample and updates CSV mode badge', () => {
+  it('loads 1-click CSV sample and switches between Raw Diff and Table Diff', () => {
     render(<App />)
 
     const csvSampleBtn = screen.getByRole('button', {
@@ -45,6 +45,26 @@ describe('PII Shield UI', () => {
     expect(
       screen.getByRole('button', { name: /Download hr-csv\.sanitized\.csv/i })
     ).toBeInTheDocument()
+
+    const tableBtn = screen.getByRole('button', { name: /Table Diff/i })
+    fireEvent.click(tableBtn)
+    expect(
+      screen.getByText(/Side-by-Side CSV Cell Diff/i)
+    ).toBeInTheDocument()
+  })
+
+  it('adds custom IFSC preset rule and supports round-trip pseudonym restore', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Indian IFSC Code/i }))
+    expect(screen.getByText('Indian IFSC Code')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Consistent Pseudonym/i }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /Load Pseudonymized Output/i })
+    )
+    const restoredPane = screen.getByLabelText('Locally restored output')
+    expect(restoredPane.textContent).toContain('rohan.sharma@fintechcorp.in')
   })
 
   it('opens and closes the Prompt Log & Security dialog', () => {
