@@ -1,6 +1,7 @@
 # PII Shield (`promptwars-pii-shield`)
 
 > **PromptWars × NIAT Pune 2026 — Cybersecurity & Data Privacy Track**  
+> **Live Demo:** https://promptwars-pii-shield.vercel.app  
 > A **100% client-side, zero-server** browser data sanitization tool that detects, validates, classifies, and redacts sensitive PII in raw text, `.txt`, and `.csv` files without transmitting any data off your device.
 
 ---
