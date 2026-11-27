@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AuditPanel } from './components/AuditPanel'
 import { ComplianceBanner } from './components/ComplianceBanner'
 import { ControlsBar } from './components/ControlsBar'
 import { DiffViewer } from './components/DiffViewer'
 import { Header } from './components/Header'
 import { PromptLogModal } from './components/PromptLogModal'
-import { VaultAndCustomPanel } from './components/VaultAndCustomPanel'
+import { SecurityWorkbench } from './components/SecurityWorkbench'
 import { SAMPLE_DATASETS, type SampleDataset } from './data/samples'
 import {
   detectOnDeviceAiStatus,
@@ -354,7 +353,7 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="bg-cyber-grid min-h-screen text-slate-100">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-cyan-400 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-slate-950"
@@ -369,7 +368,7 @@ export function App() {
 
       <main
         id="main-content"
-        className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6"
+        className="mx-auto max-w-7xl space-y-4 px-4 py-5 sm:px-6"
       >
         <ComplianceBanner assessment={complianceAssessment} />
 
@@ -396,20 +395,15 @@ export function App() {
           onDownloadSanitized={handleDownloadSanitized}
         />
 
-        <AuditPanel
+        <SecurityWorkbench
           result={result}
           mode={mode}
           privacyAdvice={activePrivacyAdvice}
-          onDownloadAuditJson={handleDownloadAuditJson}
-        />
-
-        <VaultAndCustomPanel
-          result={result}
-          mode={mode}
           customRules={customRules}
           onAddCustomRule={handleAddCustomRule}
           onToggleCustomRule={handleToggleCustomRule}
           onDeleteCustomRule={handleDeleteCustomRule}
+          onDownloadAuditJson={handleDownloadAuditJson}
         />
       </main>
 

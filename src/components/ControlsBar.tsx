@@ -32,7 +32,7 @@ const MODE_OPTIONS: ReadonlyArray<{
   {
     id: 'full',
     label: 'Full Mask',
-    hint: '[REDACTED] blocks',
+    hint: '[REDACTED]',
   },
   {
     id: 'partial',
@@ -83,28 +83,35 @@ export function ControlsBar({
   return (
     <section
       aria-label="Sanitization Controls and Sample Loader"
-      className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5"
+      className="space-y-3.5 rounded-2xl border border-slate-800/90 bg-slate-900/65 p-4 ring-1 ring-white/[0.03] backdrop-blur sm:p-5"
     >
       {/* Top Row: Sample Loader + File Upload */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
             <Sparkles className="h-3.5 w-3.5 text-amber-300" aria-hidden="true" />
             <span>1-Click Sample Noisy Datasets</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {SAMPLE_DATASETS.map((sample) => (
-              <button
-                key={sample.id}
-                type="button"
-                onClick={() => onLoadSample(sample)}
-                title={sample.description}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-cyan-500/60 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-              >
-                <FileText className="h-3.5 w-3.5 text-cyan-400" aria-hidden="true" />
-                <span>{sample.name}</span>
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-1.5">
+            {SAMPLE_DATASETS.map((sample) => {
+              const isLoaded = activeFileName === `${sample.id}.${sample.format}`
+              return (
+                <button
+                  key={sample.id}
+                  type="button"
+                  onClick={() => onLoadSample(sample)}
+                  title={sample.description}
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                    isLoaded
+                      ? 'border-cyan-400/70 bg-cyan-500/15 text-cyan-200'
+                      : 'border-slate-700/80 bg-slate-950/80 text-slate-200 hover:border-cyan-500/50 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <FileText className="h-3.5 w-3.5 text-cyan-400" aria-hidden="true" />
+                  <span>{sample.name}</span>
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -115,10 +122,10 @@ export function ControlsBar({
           }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
-          className={`flex flex-wrap items-center gap-2.5 rounded-xl border border-dashed px-3.5 py-2.5 transition ${
+          className={`flex flex-wrap items-center gap-2 rounded-xl border border-dashed px-3 py-2 transition ${
             isDragging
               ? 'border-cyan-400 bg-cyan-500/10'
-              : 'border-slate-700 bg-slate-950/60'
+              : 'border-slate-700/90 bg-slate-950/60'
           }`}
         >
           <input
@@ -132,7 +139,7 @@ export function ControlsBar({
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-3.5 py-1.5 text-xs font-semibold text-slate-950 transition hover:bg-cyan-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-400 to-sky-400 px-3 py-1.5 text-xs font-semibold text-slate-950 shadow-sm shadow-cyan-500/20 transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
           >
             <Upload className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Upload .txt / .csv</span>
@@ -142,14 +149,14 @@ export function ControlsBar({
             {activeFileName ? (
               <span className="font-mono text-cyan-300">{activeFileName}</span>
             ) : (
-              'or drag & drop file (max 5 MB)'
+              'or drop file (max 5 MB)'
             )}
           </span>
 
           <button
             type="button"
             onClick={onClear}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-rose-500/50 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-700/90 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-rose-500/50 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
             aria-label="Clear input text"
           >
             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -167,11 +174,11 @@ export function ControlsBar({
         </div>
       )}
 
-      {/* Middle Row: Redaction Modes + Category Toggles */}
-      <div className="grid gap-4 border-t border-slate-800/80 pt-4 lg:grid-cols-12">
-        <div className="space-y-2 lg:col-span-5">
+      {/* Bottom Row: Redaction Modes + Category Toggles */}
+      <div className="grid gap-3.5 border-t border-slate-800/80 pt-3.5 lg:grid-cols-12">
+        <div className="space-y-1.5 lg:col-span-5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
               Redaction Mode
             </span>
             {mode === 'full' && (
@@ -194,7 +201,7 @@ export function ControlsBar({
           <div
             role="group"
             aria-label="Redaction mode selection"
-            className="grid grid-cols-1 gap-2 sm:grid-cols-3"
+            className="grid grid-cols-1 gap-1.5 sm:grid-cols-3"
           >
             {MODE_OPTIONS.map((opt) => {
               const active = mode === opt.id
@@ -206,12 +213,12 @@ export function ControlsBar({
                   onClick={() => onModeChange(opt.id)}
                   className={`flex flex-col items-start rounded-xl border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                     active
-                      ? 'border-cyan-400 bg-cyan-500/15 text-white shadow-sm shadow-cyan-500/10'
+                      ? 'border-cyan-400/80 bg-cyan-500/15 text-white shadow-sm shadow-cyan-500/15'
                       : 'border-slate-800 bg-slate-950/60 text-slate-300 hover:border-slate-700 hover:bg-slate-900'
                   }`}
                 >
                   <span className="text-xs font-semibold">{opt.label}</span>
-                  <span className="mt-0.5 font-mono text-[11px] text-slate-400">
+                  <span className="mt-0.5 font-mono text-[10px] text-slate-400">
                     {opt.hint}
                   </span>
                 </button>
@@ -220,11 +227,11 @@ export function ControlsBar({
           </div>
         </div>
 
-        <div className="space-y-2 lg:col-span-7">
-          <span className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Detected PII Categories (Toggle Active Filters)
+        <div className="space-y-1.5 lg:col-span-7">
+          <span className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            Active PII Detectors (Click to Toggle)
           </span>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {ALL_CATEGORIES.map((cat) => {
               const meta = PII_CATEGORY_META[cat]
               const enabled = enabledCategories[cat]
@@ -236,7 +243,7 @@ export function ControlsBar({
                   aria-pressed={enabled}
                   onClick={() => onToggleCategory(cat)}
                   title={meta.description}
-                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                     enabled
                       ? meta.badgeClass
                       : 'border-slate-800 bg-slate-950/50 text-slate-500 line-through'
@@ -246,7 +253,7 @@ export function ControlsBar({
                   <span
                     className={`rounded-md px-1.5 py-0.5 font-mono text-[11px] font-semibold ${
                       enabled
-                        ? 'bg-slate-950/60 text-white'
+                        ? 'bg-slate-950/70 text-white'
                         : 'bg-slate-900 text-slate-500'
                     }`}
                   >

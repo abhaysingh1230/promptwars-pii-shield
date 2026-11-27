@@ -34,7 +34,7 @@ function renderHighlightedSegments(
   if (segments.length === 0) {
     return (
       <span className="text-slate-500">
-        Paste text above or load a sample dataset to inspect live PII highlights...
+        Paste text or load a sample dataset to inspect live PII highlights...
       </span>
     )
   }
@@ -98,6 +98,7 @@ export function DiffViewer({
   }, [result.isCsv, result.originalText, result.sanitizedText])
 
   const effectiveViewMode = result.isCsv ? viewMode : 'text'
+  const lineCount = rawInput ? rawInput.split(/\r\n|\r|\n/).length : 0
 
   function handleSyncScroll(source: 'left' | 'right') {
     if (!syncScroll || isSyncingRef.current) return
@@ -212,7 +213,7 @@ export function DiffViewer({
             type="button"
             onClick={onDownloadSanitized}
             disabled={!result.sanitizedText}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3.5 py-1.5 text-xs font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-emerald-400 to-teal-400 px-3.5 py-1.5 text-xs font-semibold text-slate-950 shadow-sm shadow-emerald-500/20 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
             <span>Download {downloadFileName}</span>
@@ -224,7 +225,7 @@ export function DiffViewer({
       {selectedEntity && (
         <div
           role="status"
-          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-cyan-500/35 bg-cyan-950/30 px-3.5 py-2 text-xs"
+          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-cyan-500/40 bg-cyan-950/35 px-3.5 py-2 text-xs shadow-sm"
         >
           <div className="flex flex-wrap items-center gap-2">
             <Info className="h-4 w-4 text-cyan-300" aria-hidden="true" />
@@ -252,8 +253,8 @@ export function DiffViewer({
       )}
 
       {effectiveViewMode === 'table' && csvTables ? (
-        <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70">
-          <div className="border-b border-slate-800 bg-slate-950/60 px-4 py-2.5 text-xs font-semibold text-slate-200">
+        <div className="overflow-hidden rounded-2xl border border-slate-800/90 bg-slate-900/75 ring-1 ring-white/[0.03]">
+          <div className="border-b border-slate-800 bg-slate-950/70 px-4 py-2.5 text-xs font-semibold text-slate-200">
             Side-by-Side CSV Cell Diff (Original → Sanitized)
           </div>
           <div className="custom-scrollbar max-h-96 overflow-auto">
@@ -306,14 +307,20 @@ export function DiffViewer({
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Left Pane: Original Input / Annotated Highlights */}
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70">
-            <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/60 px-4 py-2.5">
-              <label
-                htmlFor="raw-pii-input"
-                className="text-xs font-semibold text-slate-200"
-              >
-                Original Input
-              </label>
+          <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-800/90 bg-slate-900/75 ring-1 ring-white/[0.03]">
+            <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/70 px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2 w-2 rounded-full bg-rose-400"
+                  aria-hidden="true"
+                />
+                <label
+                  htmlFor="raw-pii-input"
+                  className="text-xs font-semibold text-slate-200"
+                >
+                  Original Input
+                </label>
+              </div>
               <div
                 role="tablist"
                 aria-label="Original input view mode"
@@ -340,7 +347,7 @@ export function DiffViewer({
                   onClick={() => setLeftTab('highlights')}
                   className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
                     leftTab === 'highlights'
-                      ? 'bg-slate-800 text-white'
+                      ? 'bg-cyan-500/20 text-cyan-200'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
@@ -357,14 +364,14 @@ export function DiffViewer({
                 onChange={(e) => onRawInputChange(e.target.value)}
                 placeholder="Paste raw logs, resumes, support tickets, clinical notes, or CSV rows here — everything stays 100% in your browser..."
                 spellCheck={false}
-                className="custom-scrollbar h-80 w-full resize-y bg-transparent p-4 font-mono text-[13px] leading-relaxed text-slate-100 placeholder:text-slate-500 focus:outline-none sm:h-96"
+                className="custom-scrollbar h-72 w-full resize-y bg-transparent p-4 font-mono text-[13px] leading-relaxed text-slate-100 placeholder:text-slate-500 focus:outline-none sm:h-80"
               />
             ) : (
               <div
                 ref={leftScrollRef}
                 onScroll={() => handleSyncScroll('left')}
                 aria-label="Original text with detected PII highlighted"
-                className="custom-scrollbar h-80 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-slate-200 sm:h-96"
+                className="custom-scrollbar h-72 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-slate-200 sm:h-80"
               >
                 {renderHighlightedSegments(
                   result.originalSegments,
@@ -374,14 +381,25 @@ export function DiffViewer({
                 )}
               </div>
             )}
+
+            <div className="flex items-center justify-between border-t border-slate-800/80 bg-slate-950/50 px-4 py-1.5 font-mono text-[11px] text-slate-500">
+              <span>{lineCount} lines • {rawInput.length} chars</span>
+              <span>Local browser memory only</span>
+            </div>
           </div>
 
           {/* Right Pane: Sanitized Diff Output */}
-          <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/70">
-            <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/60 px-4 py-2.5">
-              <span className="text-xs font-semibold text-emerald-300">
-                Sanitized Output (Click any badge to inspect)
-              </span>
+          <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-800/90 bg-slate-900/75 ring-1 ring-white/[0.03]">
+            <div className="flex items-center justify-between border-b border-slate-800 bg-slate-950/70 px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2 w-2 rounded-full bg-emerald-400"
+                  aria-hidden="true"
+                />
+                <span className="text-xs font-semibold text-emerald-300">
+                  Sanitized Output (Click badge to inspect)
+                </span>
+              </div>
               <span
                 aria-live="polite"
                 className="font-mono text-[11px] text-slate-400"
@@ -394,7 +412,7 @@ export function DiffViewer({
               ref={rightScrollRef}
               onScroll={() => handleSyncScroll('right')}
               aria-label="Sanitized output diff preview"
-              className="custom-scrollbar h-80 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-slate-100 sm:h-96"
+              className="custom-scrollbar h-72 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-slate-100 sm:h-80"
             >
               {renderHighlightedSegments(
                 result.sanitizedSegments,
@@ -402,6 +420,11 @@ export function DiffViewer({
                 selectedEntity?.id ?? null,
                 setSelectedEntity
               )}
+            </div>
+
+            <div className="flex items-center justify-between border-t border-slate-800/80 bg-slate-950/50 px-4 py-1.5 font-mono text-[11px] text-slate-500">
+              <span>{result.sanitizedText.length} sanitized chars</span>
+              <span className="text-emerald-400/90">Safe to share / export</span>
             </div>
           </div>
         </div>

@@ -56,10 +56,12 @@ describe('PII Shield UI', () => {
   it('adds custom IFSC preset rule and supports round-trip pseudonym restore', () => {
     render(<App />)
 
+    fireEvent.click(screen.getByRole('tab', { name: /Custom Rules/i }))
     fireEvent.click(screen.getByRole('button', { name: /\+ Indian IFSC Code/i }))
     expect(screen.getByText('Indian IFSC Code')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /Consistent Pseudonym/i }))
+    fireEvent.click(screen.getByRole('tab', { name: /Round-Trip Vault/i }))
     fireEvent.click(
       screen.getByRole('button', { name: /Load Pseudonymized Output/i })
     )

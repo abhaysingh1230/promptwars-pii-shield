@@ -13,6 +13,15 @@
   }
 }
 
+.bg-cyber-grid {
+  background-color: #020617;
+  background-image:
+    radial-gradient(ellipse 80% 45% at 50% -10%, rgba(6, 182, 212, 0.14), transparent),
+    linear-gradient(to right, rgba(30, 41, 59, 0.25) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(30, 41, 59, 0.25) 1px, transparent 1px);
+  background-size: 100% 100%, 36px 36px, 36px 36px;
+}
+
 /* Custom subtle scrollbars for diff panels */
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;

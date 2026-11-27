@@ -1,4 +1,4 @@
-import { BookOpen, Lock, ShieldCheck, WifiOff } from 'lucide-react'
+import { BookOpen, Cpu, ShieldCheck, WifiOff } from 'lucide-react'
 
 interface HeaderProps {
   onOpenPromptLog: () => void
@@ -7,30 +7,30 @@ interface HeaderProps {
 
 export function Header({ onOpenPromptLog, onDeviceAiStatus }: HeaderProps) {
   return (
-    <header className="border-b border-slate-800/80 bg-slate-950/90 backdrop-blur supports-[backdrop-filter]:bg-slate-950/75">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
+    <header className="sticky top-0 z-30 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-md">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 ring-1 ring-cyan-400/40">
-            <ShieldCheck className="h-6 w-6 text-cyan-300" aria-hidden="true" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400/20 via-sky-500/15 to-emerald-500/20 ring-1 ring-cyan-400/40 shadow-lg shadow-cyan-500/10">
+            <ShieldCheck className="h-5 w-5 text-cyan-300" aria-hidden="true" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight text-white sm:text-xl">
+              <h1 className="text-base font-bold tracking-tight text-white sm:text-lg">
                 PII Shield
               </h1>
-              <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-medium text-cyan-300">
+              <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[11px] font-medium text-cyan-300">
                 Client-Side Only
               </span>
             </div>
-            <p className="text-xs text-slate-400 sm:text-sm">
-              Zero-server browser sanitization for logs, resumes, support tickets &amp; CSVs
+            <p className="text-xs text-slate-400">
+              Browser privacy airlock for logs, support tickets, resumes &amp; CSVs
             </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <div
-            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-300"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-medium text-emerald-300"
             title="All detection, Luhn validation, and redaction run 100% locally in your browser."
           >
             <WifiOff className="h-3.5 w-3.5" aria-hidden="true" />
@@ -38,25 +38,25 @@ export function Header({ onOpenPromptLog, onDeviceAiStatus }: HeaderProps) {
           </div>
 
           <div
-            className="hidden items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-300 md:inline-flex"
+            className="hidden items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-1.5 text-xs font-medium text-slate-300 md:inline-flex"
             title={
               onDeviceAiStatus === 'available'
                 ? 'Chrome Built-in Gemini Nano detected on-device'
                 : 'Local deterministic privacy engine active'
             }
           >
-            <Lock className="h-3.5 w-3.5 text-cyan-400" aria-hidden="true" />
+            <Cpu className="h-3.5 w-3.5 text-cyan-400" aria-hidden="true" />
             <span>
               {onDeviceAiStatus === 'available'
                 ? 'Gemini Nano (On-Device)'
-                : 'In-Browser Engine'}
+                : 'Local Engine + Web Crypto'}
             </span>
           </div>
 
           <button
             type="button"
             onClick={onOpenPromptLog}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-cyan-500/50 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700/90 bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-cyan-400/60 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
             <BookOpen className="h-3.5 w-3.5 text-cyan-300" aria-hidden="true" />
             <span>Prompt Log &amp; Security</span>
