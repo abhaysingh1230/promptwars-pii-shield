@@ -13,6 +13,7 @@ dist-ssr
 *.local
 .vercel
 *.mp4
+linkedin-assets/
 
 # Editor directories and files
 .vscode/*
