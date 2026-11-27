@@ -293,24 +293,29 @@ export function DiffViewer({
       </div>
 
       {/* Instrument Status Strip & Compact Category Legend */}
-      <div className="flex flex-col gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-3.5 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+      <div className="instrument-panel flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] px-3.5 py-2.5 text-xs sm:flex-row sm:items-center sm:justify-between">
         <div
           aria-label="Entity color legend"
-          className="flex flex-wrap items-center gap-x-4 gap-y-1"
+          className="flex flex-wrap items-center gap-1.5"
         >
           {BUILTIN_CATEGORIES.map((cat) => {
             const meta = PII_CATEGORY_META[cat]
+            const count = result.countsByCategory[cat]
             return (
               <span
                 key={cat}
-                className="inline-flex items-center gap-1.5 font-mono text-xs tabular-nums text-[var(--text-secondary)]"
+                className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 font-mono text-xs tabular-nums transition-ui ${
+                  count > 0
+                    ? 'border-[var(--border-strong)] bg-[var(--bg-badge)] text-[var(--text-primary)]'
+                    : 'border-transparent bg-[var(--bg-recessed)]/60 text-[var(--text-muted)] opacity-60'
+                }`}
               >
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${meta.dotClass}`}
                   aria-hidden="true"
                 />
                 <span>
-                  {meta.shortLabel}: {result.countsByCategory[cat]}
+                  {meta.shortLabel}: {count}
                 </span>
               </span>
             )
@@ -359,7 +364,7 @@ export function DiffViewer({
         <div
           role="status"
           aria-label="Selected entity validation details"
-          className="instrument-panel flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border-accent)] px-3.5 py-2.5 text-xs"
+          className="instrument-panel animate-card-reveal flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border-accent)] px-4 py-2.5 text-xs"
         >
           <div className="flex flex-wrap items-center gap-2.5">
             <Info
@@ -374,23 +379,23 @@ export function DiffViewer({
               }`}
               aria-hidden="true"
             />
-            <span className="font-medium text-[var(--text-primary)]">
+            <span className="font-display font-medium text-[var(--text-primary)]">
               {PII_CATEGORY_META[selectedEntity.category].label}
             </span>
             {selectedEntity.validationNote && (
-              <span className="rounded border border-[var(--border-safe)] bg-[var(--bg-recessed)] px-2 py-0.5 font-mono text-xs text-[var(--text-safe)]">
+              <span className="rounded-md border border-[var(--border-safe)] bg-[var(--bg-protected-well)] px-2 py-0.5 font-mono text-xs text-[var(--text-safe)]">
                 {selectedEntity.validationNote}
               </span>
             )}
-            <span className="text-[var(--text-muted)]">Replacement</span>
-            <code className="rounded border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-2 py-0.5 font-mono text-xs text-[var(--text-primary)]">
+            <span className="text-[var(--text-muted)]">→ Replacement</span>
+            <code className="rounded-md border border-[var(--border-strong)] bg-[var(--bg-recessed)] px-2 py-0.5 font-mono text-xs text-[var(--text-primary)]">
               {selectedEntity.replacement}
             </code>
           </div>
           <button
             type="button"
             onClick={() => setSelectedEntity(null)}
-            className="rounded px-2 py-0.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
+            className="transition-ui rounded-md border border-transparent px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
           >
             Dismiss
           </button>
@@ -635,28 +640,30 @@ export function DiffViewer({
             ) : (
               <div
                 aria-label="Sanitized output diff preview"
-                className="flex h-64 flex-col items-center justify-center gap-3 p-6 text-center sm:h-80"
+                className="flex min-h-64 flex-col items-center justify-center gap-3 p-6 text-center sm:min-h-80"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border-safe)] bg-[var(--bg-protected-well)]">
+                <div className="surface-active flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--border-safe)] bg-[var(--bg-protected-well)]">
                   <ShieldCheck
-                    size={18}
-                    strokeWidth={1.5}
+                    size={20}
+                    strokeWidth={1.6}
                     className="text-[var(--text-safe)]"
                     aria-hidden="true"
                   />
                 </div>
-                <p className="font-display text-sm font-medium text-[var(--text-primary)]">
-                  Paste text or upload a file
-                </p>
-                <p className="max-w-sm text-xs text-[var(--text-secondary)]">
-                  Pattern detection, Luhn checks, and redaction execute locally
-                  inside this browser tab.
-                </p>
-                <div className="flex flex-wrap justify-center gap-2 pt-1">
+                <div className="space-y-1">
+                  <p className="font-display text-sm font-medium text-[var(--text-primary)]">
+                    Paste text or upload a file
+                  </p>
+                  <p className="max-w-sm text-xs text-[var(--text-secondary)]">
+                    Detection, Luhn checks, and redaction run 100% locally in
+                    this browser tab.
+                  </p>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2 pt-0.5">
                   <button
                     type="button"
                     onClick={() => onLoadSample(SAMPLE_DATASETS[0])}
-                    className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] px-3 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
+                    className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg bg-[var(--accent-solid)] px-3.5 text-xs font-medium text-[var(--accent-solid-text)] hover:bg-[var(--accent-solid-hover)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
                   >
                     <FileText size={16} strokeWidth={1.5} aria-hidden="true" />
                     <span>Load fictional sample</span>
@@ -664,11 +671,27 @@ export function DiffViewer({
                   <button
                     type="button"
                     onClick={onRequestUpload}
-                    className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-recessed)] px-3 text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--border-accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
+                    className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] px-3 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-accent)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
                   >
                     <Upload size={16} strokeWidth={1.5} aria-hidden="true" />
                     <span>Upload .txt / .csv</span>
                   </button>
+                </div>
+                <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5 border-t border-[var(--border-subtle)] pt-3">
+                  <span className="text-[11px] text-[var(--text-muted)]">
+                    Quick presets:
+                  </span>
+                  {SAMPLE_DATASETS.slice(1).map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => onLoadSample(preset)}
+                      title={preset.description}
+                      className="transition-ui rounded-md border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:border-[var(--border-accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
+                    >
+                      {preset.name.replace(' (fictional)', '')}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}

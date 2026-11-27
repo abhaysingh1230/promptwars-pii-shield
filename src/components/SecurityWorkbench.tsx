@@ -208,9 +208,9 @@ export function SecurityWorkbench({
             <ChevronRight size={16} strokeWidth={1.5} aria-hidden="true" />
           )}
           <span id="advanced-tools-heading">Advanced security tools</span>
-          <span className="font-mono text-xs tabular-nums text-[var(--text-muted)]">
+          <span className="hidden font-mono text-xs tabular-nums text-[var(--text-muted)] sm:inline">
             · Luhn filtered: {result.luhnRejected.length} · Custom rules:{' '}
-            {customRules.length} · Vault
+            {customRules.length} · AES-GCM vault
           </span>
         </button>
 

@@ -39,10 +39,26 @@ const MODE_OPTIONS: ReadonlyArray<{
   id: RedactionMode
   label: string
   example: string
+  hint: string
 }> = [
-  { id: 'full', label: 'Full mask', example: '[REDACTED]' },
-  { id: 'partial', label: 'Partial mask', example: 'XXXX-XXXX-1234' },
-  { id: 'pseudonym', label: 'Pseudonymization', example: 'EMAIL_01' },
+  {
+    id: 'full',
+    label: 'Full mask',
+    example: '[REDACTED]',
+    hint: 'Hide completely',
+  },
+  {
+    id: 'partial',
+    label: 'Partial mask',
+    example: 'XXXX-XXXX-1234',
+    hint: 'Keep safe tail',
+  },
+  {
+    id: 'pseudonym',
+    label: 'Pseudonymization',
+    example: 'EMAIL_01',
+    hint: 'Consistent IDs',
+  },
 ]
 
 export function ControlsBar({
@@ -119,7 +135,7 @@ export function ControlsBar({
           <div
             role="group"
             aria-label="Redaction mode selection"
-            className="instrument-recessed grid grid-cols-1 gap-1.5 rounded-lg border border-[var(--border-subtle)] p-1 sm:grid-cols-3"
+            className="instrument-recessed grid grid-cols-1 gap-1.5 rounded-xl border border-[var(--border-subtle)] p-1.5 sm:grid-cols-3"
           >
             {MODE_OPTIONS.map((opt) => {
               const active = mode === opt.id
@@ -129,7 +145,7 @@ export function ControlsBar({
                   type="button"
                   aria-pressed={active}
                   onClick={() => onModeChange(opt.id)}
-                  className={`transition-ui relative flex min-h-11 flex-col items-start justify-center rounded-md border px-3 py-1.5 text-left active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
+                  className={`transition-ui relative flex min-h-12 flex-col items-start justify-center rounded-lg border px-3 py-2 text-left active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
                     active
                       ? 'surface-active border-[var(--border-accent)] bg-[var(--bg-active)] text-[var(--text-primary)]'
                       : 'border-transparent bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-panel)] hover:text-[var(--text-primary)]'
@@ -138,13 +154,30 @@ export function ControlsBar({
                   {active && (
                     <span
                       aria-hidden="true"
-                      className="absolute inset-x-3 top-0 h-[1.5px] rounded-full bg-[var(--accent-solid)]"
+                      className="absolute inset-x-3 top-0 h-[2px] rounded-full bg-[var(--accent-solid)]"
                     />
                   )}
-                  <span className="text-xs font-medium leading-tight">
-                    {opt.label}
-                  </span>
-                  <span className="mt-0.5 font-mono text-xs text-[var(--text-muted)]">
+                  <div className="flex w-full items-center justify-between gap-2">
+                    <span className="text-xs font-medium leading-tight">
+                      {opt.label}
+                    </span>
+                    <span
+                      className={`text-[11px] ${
+                        active
+                          ? 'text-[var(--text-accent)]'
+                          : 'text-[var(--text-muted)]'
+                      }`}
+                    >
+                      {opt.hint}
+                    </span>
+                  </div>
+                  <span
+                    className={`mt-1 inline-block rounded border px-1.5 py-0.5 font-mono text-[11px] ${
+                      active
+                        ? 'border-[var(--border-accent)]/40 bg-[var(--bg-recessed)] text-[var(--text-primary)]'
+                        : 'border-[var(--border-subtle)] bg-[var(--bg-recessed)]/60 text-[var(--text-muted)]'
+                    }`}
+                  >
                     {opt.example}
                   </span>
                 </button>

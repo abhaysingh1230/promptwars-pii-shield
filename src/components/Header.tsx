@@ -35,25 +35,25 @@ export function Header({
     <header className="sticky top-0 z-30 border-b border-[var(--border-subtle)] bg-[var(--bg-header)] backdrop-blur-sm">
       <div className="mx-auto flex min-h-16 max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--border-accent)] bg-[var(--bg-panel)]">
+          <div className="surface-active flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border-accent)] bg-gradient-to-b from-[var(--bg-active)] to-[var(--bg-panel)]">
             <Shield
-              size={16}
-              strokeWidth={1.5}
+              size={18}
+              strokeWidth={1.6}
               className="text-[var(--text-accent)]"
               aria-hidden="true"
             />
           </div>
           <div>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <h1 className="font-display text-lg font-medium leading-none text-[var(--text-primary)]">
                 PII Shield
               </h1>
-              <span className="hidden rounded border border-[var(--border-subtle)] bg-[var(--bg-panel)] px-1.5 py-0.5 font-mono text-xs text-[var(--text-muted)] sm:inline">
+              <span className="hidden rounded-md border border-[var(--border-accent)]/40 bg-[var(--bg-active)] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[var(--text-accent)] sm:inline">
                 v2.6
               </span>
             </div>
-            <p className="mt-0.5 hidden text-xs text-[var(--text-muted)] sm:block">
-              Local browser sanitization console for logs, tickets, resumes, and CSVs
+            <p className="mt-1 hidden text-xs text-[var(--text-muted)] sm:block">
+              Private in-browser sanitizer for logs, tickets, resumes &amp; CSVs
             </p>
           </div>
         </div>
@@ -62,7 +62,7 @@ export function Header({
         <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
           <div
             aria-label="Live workstation status"
-            className="hidden items-center gap-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-3 py-1.5 font-mono text-xs tabular-nums text-[var(--text-secondary)] xl:inline-flex"
+            className="hidden items-center gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-3 py-1.5 font-mono text-xs tabular-nums text-[var(--text-secondary)] lg:inline-flex"
             title="Text and file processing executes locally in browser memory."
           >
             <span
@@ -76,12 +76,16 @@ export function Header({
             <span>{totalEntities} detected</span>
             <span className="text-[var(--text-muted)]/60">|</span>
             <span className="text-[var(--text-accent)]">{MODE_LABELS[mode]}</span>
-            <span className="text-[var(--text-muted)]/60">|</span>
-            <span className="text-[var(--text-muted)]">{processingMs} ms</span>
+            <span className="hidden text-[var(--text-muted)]/60 xl:inline">|</span>
+            <span className="hidden text-[var(--text-muted)] xl:inline">
+              {processingMs} ms
+            </span>
             {onDeviceAiStatus === 'available' && (
               <>
-                <span className="text-[var(--text-muted)]/60">|</span>
-                <span className="text-[var(--text-muted)]">Gemini Nano</span>
+                <span className="hidden text-[var(--text-muted)]/60 xl:inline">|</span>
+                <span className="hidden text-[var(--text-muted)] xl:inline">
+                  Gemini Nano
+                </span>
               </>
             )}
           </div>
