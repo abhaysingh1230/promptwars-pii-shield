@@ -1,10 +1,90 @@
 @import "tailwindcss";
 
 @layer base {
-  :root {
+  :root,
+  html.dark {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     color-scheme: dark;
     --ease-ui: cubic-bezier(0.22, 1, 0.36, 1);
+
+    --bg-canvas: #080a0f;
+    --bg-header: rgba(8, 10, 15, 0.95);
+    --bg-panel: #111622;
+    --bg-panel-hover: #151b26;
+    --bg-active: #171f2e;
+    --bg-recessed: #090c12;
+    --bg-badge: #1a1e28;
+    --bg-protected-header: rgba(9, 14, 18, 0.8);
+    --bg-protected-well: #0c1418;
+    --bg-overlay: rgba(9, 11, 16, 0.85);
+    --bg-modal: #0f131b;
+    --bg-table-hover: rgba(21, 27, 38, 0.7);
+    --bg-disabled: #1a2230;
+    --bg-drag: #161e2b;
+
+    --text-primary: #f1f5f9;
+    --text-secondary: #a3a9b8;
+    --text-muted: #8b93a7;
+    --text-disabled: #64748b;
+    --text-accent: #22d3ee;
+    --text-safe: #34d399;
+    --text-danger: #f87171;
+
+    --border-subtle: rgba(226, 232, 240, 0.08);
+    --border-strong: rgba(226, 232, 240, 0.14);
+    --border-accent: rgba(34, 211, 238, 0.5);
+    --border-safe: rgba(52, 211, 153, 0.32);
+
+    --accent-solid: #22d3ee;
+    --accent-solid-hover: #38e1fa;
+    --accent-solid-text: #080a0f;
+    --cta-solid: #f1f5f9;
+    --cta-solid-hover: #ffffff;
+    --cta-solid-text: #080a0f;
+  }
+
+  html.light {
+    color-scheme: light;
+
+    --bg-canvas: #f5f7fb;
+    --bg-header: rgba(255, 255, 255, 0.92);
+    --bg-panel: #ffffff;
+    --bg-panel-hover: #f1f5f9;
+    --bg-active: #e6eef8;
+    --bg-recessed: #f1f5f9;
+    --bg-badge: #f8fafc;
+    --bg-protected-header: rgba(236, 253, 245, 0.9);
+    --bg-protected-well: #ecfdf5;
+    --bg-overlay: rgba(15, 23, 42, 0.45);
+    --bg-modal: #ffffff;
+    --bg-table-hover: rgba(241, 245, 249, 0.85);
+    --bg-disabled: #e2e8f0;
+    --bg-drag: #e0f2fe;
+
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-muted: #64748b;
+    --text-disabled: #94a3b8;
+    --text-accent: #0891b2;
+    --text-safe: #047857;
+    --text-danger: #dc2626;
+
+    --border-subtle: rgba(15, 23, 42, 0.1);
+    --border-strong: rgba(15, 23, 42, 0.18);
+    --border-accent: rgba(8, 145, 178, 0.45);
+    --border-safe: rgba(5, 150, 105, 0.35);
+
+    --accent-solid: #0891b2;
+    --accent-solid-hover: #0e7490;
+    --accent-solid-text: #ffffff;
+    --cta-solid: #0f172a;
+    --cta-solid-hover: #1e293b;
+    --cta-solid-text: #ffffff;
+  }
+
+  ::selection {
+    background-color: rgba(34, 211, 238, 0.25);
+    color: var(--text-primary);
   }
 
   code,
@@ -29,15 +109,23 @@
   transition-timing-function: var(--ease-ui);
 }
 
-/* Deep midnight graphite canvas with one calm architectural horizon light */
+/* Deep midnight graphite canvas (or crisp light workstation) with calm architectural horizon light */
 .workstation-canvas {
-  background-color: #080a0f;
+  background-color: var(--bg-canvas);
   background-image: radial-gradient(
     960px 300px at 50% 0%,
     rgba(34, 211, 238, 0.065),
     transparent 72%
   );
   background-repeat: no-repeat;
+}
+
+html.light .workstation-canvas {
+  background-image: radial-gradient(
+    960px 300px at 50% 0%,
+    rgba(8, 145, 178, 0.08),
+    transparent 72%
+  );
 }
 
 /* Layered instrument surfaces with subtle specular top edge */
@@ -48,9 +136,20 @@
     0 12px 32px -16px rgba(0, 0, 0, 0.65);
 }
 
+html.light .instrument-panel {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 10px 26px -16px rgba(15, 23, 42, 0.14);
+}
+
 .instrument-recessed {
-  background-color: #090c12;
+  background-color: var(--bg-recessed);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+
+html.light .instrument-recessed {
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
 .protected-panel {
@@ -60,10 +159,23 @@
     0 12px 32px -16px rgba(0, 0, 0, 0.65);
 }
 
+html.light .protected-panel {
+  background: linear-gradient(180deg, #f3fcf8 0%, #ffffff 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(16, 185, 129, 0.28),
+    0 10px 26px -16px rgba(15, 23, 42, 0.14);
+}
+
 .surface-active {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+html.light .surface-active {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 3px rgba(15, 23, 42, 0.1);
 }
 
 @keyframes sanitize-sweep {
@@ -106,7 +218,7 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #080a0f;
+  background: var(--bg-canvas);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {

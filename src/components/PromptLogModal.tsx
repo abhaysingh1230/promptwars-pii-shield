@@ -121,28 +121,28 @@ export function PromptLogModal({
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose()
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[#090b10]/85 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--bg-overlay)] p-4 backdrop-blur-sm"
     >
       <div
         ref={dialogRef}
-        className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-xl border border-[#eef0f5]/[0.12] bg-[#0f131b] p-5"
+        className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-xl border border-[var(--border-strong)] bg-[var(--bg-modal)] p-5"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[#eef0f5]/[0.08] pb-4">
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--border-subtle)] pb-4">
           <div className="flex items-center gap-2.5">
             <Shield
               size={16}
               strokeWidth={1.5}
-              className="text-[#22d3ee]"
+              className="text-[var(--text-accent)]"
               aria-hidden="true"
             />
             <div>
               <h2
                 id="info-modal-title"
-                className="text-sm font-medium text-[#eef0f5]"
+                className="font-display text-sm font-medium text-[var(--text-primary)]"
               >
                 Security, detection limits, and prompt log
               </h2>
-              <p className="text-xs text-[#8b93a7]">
+              <p className="text-xs text-[var(--text-muted)]">
                 SECURITY.md · PROMPT_LOG.md · Press Esc to close
               </p>
             </div>
@@ -153,7 +153,7 @@ export function PromptLogModal({
             type="button"
             onClick={handleClose}
             aria-label="Close security and prompt log dialog"
-            className="rounded-lg border border-[#eef0f5]/[0.1] bg-[#161b26] p-1.5 text-[#a3a9b8] hover:text-[#eef0f5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
+            className="rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
           >
             <X size={16} strokeWidth={1.5} aria-hidden="true" />
           </button>
@@ -162,7 +162,7 @@ export function PromptLogModal({
         <div
           role="tablist"
           aria-label="Documentation sections"
-          className="mt-4 inline-flex rounded-lg border border-[#eef0f5]/[0.08] bg-[#090b10] p-0.5"
+          className="instrument-recessed mt-4 inline-flex rounded-lg border border-[var(--border-subtle)] p-0.5"
         >
           <button
             ref={secTabRef}
@@ -174,10 +174,10 @@ export function PromptLogModal({
             tabIndex={activeTab === 'security' ? 0 : -1}
             onClick={() => onTabChange('security')}
             onKeyDown={handleTabKeyDown}
-            className={`transition-ui rounded-md px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee] ${
+            className={`transition-ui rounded-md px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
               activeTab === 'security'
-                ? 'surface-active bg-[#161b26] text-[#eef0f5]'
-                : 'text-[#a3a9b8] hover:text-[#eef0f5]'
+                ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             Security &amp; limitations
@@ -192,10 +192,10 @@ export function PromptLogModal({
             tabIndex={activeTab === 'prompts' ? 0 : -1}
             onClick={() => onTabChange('prompts')}
             onKeyDown={handleTabKeyDown}
-            className={`transition-ui rounded-md px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee] ${
+            className={`transition-ui rounded-md px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
               activeTab === 'prompts'
-                ? 'surface-active bg-[#161b26] text-[#eef0f5]'
-                : 'text-[#a3a9b8] hover:text-[#eef0f5]'
+                ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             Prompt log
@@ -207,10 +207,10 @@ export function PromptLogModal({
             id="modal-panel-security"
             role="tabpanel"
             aria-labelledby="modal-tab-security"
-            className="mt-4 space-y-3 text-xs text-[#a3a9b8]"
+            className="mt-4 space-y-3 text-xs text-[var(--text-secondary)]"
           >
-            <div className="rounded-lg border border-[#eef0f5]/[0.08] bg-[#090b10] p-3">
-              <h3 className="font-medium text-[#eef0f5]">
+            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3">
+              <h3 className="font-medium text-[var(--text-primary)]">
                 Privacy behavior and CSP
               </h3>
               <p className="mt-1">
@@ -221,46 +221,46 @@ export function PromptLogModal({
               </p>
             </div>
 
-            <div className="rounded-lg border border-[#eef0f5]/[0.08] bg-[#090b10] p-3">
-              <h3 className="font-medium text-[#eef0f5]">
+            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3">
+              <h3 className="font-medium text-[var(--text-primary)]">
                 Supported formats and validation types
               </h3>
               <ul className="mt-1.5 list-disc space-y-1 pl-4">
                 <li>
-                  <span className="text-[#eef0f5]">Credit cards (13–19 digits):</span>{' '}
+                  <span className="text-[var(--text-primary)]">Credit cards (13–19 digits):</span>{' '}
                   Checksum-validated with Luhn mod-10 to avoid redacting random
                   order IDs.
                 </li>
                 <li>
-                  <span className="text-[#eef0f5]">Indian Aadhaar (12 digits):</span>{' '}
+                  <span className="text-[var(--text-primary)]">Indian Aadhaar (12 digits):</span>{' '}
                   Detected by UID format and explicitly tagged as either{' '}
-                  <span className="font-mono text-[#eef0f5]">
+                  <span className="font-mono text-[var(--text-primary)]">
                     Verhoeff checksum verified
                   </span>{' '}
                   or{' '}
-                  <span className="font-mono text-[#eef0f5]">
+                  <span className="font-mono text-[var(--text-primary)]">
                     Format-matched · checksum unverified
                   </span>
                   .
                 </li>
                 <li>
-                  <span className="text-[#eef0f5]">Phone numbers:</span>{' '}
+                  <span className="text-[var(--text-primary)]">Phone numbers:</span>{' '}
                   Validated locally against bundled{' '}
-                  <span className="font-mono text-[#eef0f5]">
+                  <span className="font-mono text-[var(--text-primary)]">
                     libphonenumber-js/max
                   </span>{' '}
                   numbering plans (Indian mobile/STD and international E.164 with
                   extensions).
                 </li>
                 <li>
-                  <span className="text-[#eef0f5]">IPv4 &amp; IPv6:</span> Strict
+                  <span className="text-[var(--text-primary)]">IPv4 &amp; IPv6:</span> Strict
                   0–255 IPv4 octets and RFC 4291/5952 IPv6 (full, compressed,
                   loopback <span className="font-mono">::1</span>, and
                   IPv4-mapped). The unspecified address{' '}
                   <span className="font-mono">::</span> is excluded.
                 </li>
                 <li>
-                  <span className="text-[#eef0f5]">Custom rules &amp; CSV:</span>{' '}
+                  <span className="text-[var(--text-primary)]">Custom rules &amp; CSV:</span>{' '}
                   Custom patterns compile with Google&apos;s linear-time RE2
                   engine (<span className="font-mono">re2js</span>). Malformed CSV
                   quotes raise explicit errors and formula-leading cells are
@@ -270,8 +270,8 @@ export function PromptLogModal({
               </ul>
             </div>
 
-            <div className="rounded-lg border border-[#eef0f5]/[0.08] bg-[#090b10] p-3">
-              <h3 className="font-medium text-[#eef0f5]">Known limitations</h3>
+            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3">
+              <h3 className="font-medium text-[var(--text-primary)]">Known limitations</h3>
               <ul className="mt-1.5 list-disc space-y-1 pl-4">
                 <li>
                   Unstructured PII such as free-form person names, street
@@ -301,17 +301,17 @@ export function PromptLogModal({
             {PROMPT_LOG_STEPS.map((step) => (
               <div
                 key={step.phase}
-                className="rounded-lg border border-[#eef0f5]/[0.08] bg-[#090b10] p-3"
+                className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3"
               >
-                <h3 className="text-xs font-medium text-[#22d3ee]">
+                <h3 className="text-xs font-medium text-[var(--text-accent)]">
                   {step.phase}
                 </h3>
-                <p className="mt-1 text-xs text-[#a3a9b8]">
-                  <span className="font-medium text-[#eef0f5]">Prompt: </span>
+                <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                  <span className="font-medium text-[var(--text-primary)]">Prompt: </span>
                   {step.prompt}
                 </p>
-                <p className="mt-1.5 text-xs text-[#a3a9b8]">
-                  <span className="font-medium text-[#4cc38a]">Outcome: </span>
+                <p className="mt-1.5 text-xs text-[var(--text-secondary)]">
+                  <span className="font-medium text-[var(--text-safe)]">Outcome: </span>
                   {step.outcome}
                 </p>
               </div>

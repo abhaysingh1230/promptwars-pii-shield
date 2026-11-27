@@ -72,6 +72,23 @@ export function App() {
     useState<OnDeviceAdviceResult | null>(null)
   const [workerResult, setWorkerResult] = useState<SanitizeResult | null>(null)
   const [isWorkerProcessing, setIsWorkerProcessing] = useState(false)
+  const [theme, setTheme] = useState<'dark' | 'light'>(() =>
+    typeof document !== 'undefined' &&
+    document.documentElement.classList.contains('light')
+      ? 'light'
+      : 'dark'
+  )
+
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.remove('dark', 'light')
+    root.classList.add(theme)
+    try {
+      localStorage.setItem('pii-shield-theme', theme)
+    } catch {
+      // Ignore storage restrictions
+    }
+  }, [theme])
 
   const promptLogTriggerRef = useRef<HTMLButtonElement>(null)
   const securityModalTriggerRef = useRef<HTMLButtonElement>(null)
@@ -393,10 +410,10 @@ export function App() {
   }
 
   return (
-    <div className="workstation-canvas min-h-screen text-[#eef0f5]">
+    <div className="workstation-canvas min-h-screen text-[var(--text-primary)]">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-[#eef0f5] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[#090b10]"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-[var(--cta-solid)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--cta-solid-text)]"
       >
         Skip to sanitization workspace
       </a>
@@ -416,6 +433,8 @@ export function App() {
         totalEntities={result.totalEntities}
         mode={mode}
         processingMs={result.processingMs}
+        theme={theme}
+        onThemeChange={setTheme}
       />
 
       <main

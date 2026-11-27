@@ -78,7 +78,7 @@ function renderHighlightedSegments(
         aria-label={tooltip}
         className={`transition-ui inline cursor-pointer rounded px-1 py-0.5 font-mono text-[13px] ${
           variant === 'original' ? meta.highlightClass : meta.redactedClass
-        } ${isSelected ? 'ring-2 ring-[#22d3ee]' : ''}`}
+        } ${isSelected ? 'ring-2 ring-[var(--accent-solid)]' : ''}`}
       >
         {seg.text}
       </button>
@@ -182,19 +182,19 @@ export function DiffViewer({
         <div className="flex flex-wrap items-center gap-3">
           <h2
             id="diff-heading"
-            className="font-display text-base font-medium text-[#f1f5f9]"
+            className="font-display text-base font-medium text-[var(--text-primary)]"
           >
             Sanitization workspace
           </h2>
-          <span className="inline-flex items-center gap-1.5 rounded-md border border-[#e2e8f0]/[0.08] bg-[#0d1118] px-2 py-0.5 font-mono text-xs text-[#a3a9b8]">
+          <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-2 py-0.5 font-mono text-xs text-[var(--text-secondary)]">
             <span
-              className="h-1.5 w-1.5 rounded-full bg-[#34d399]"
+              className="h-1.5 w-1.5 rounded-full bg-[var(--text-safe)]"
               aria-hidden="true"
             />
             <span>Processed in this browser</span>
           </span>
           {result.isCsv && !result.csvParseError && (
-            <span className="font-mono text-xs tabular-nums text-[#a3a9b8]">
+            <span className="font-mono text-xs tabular-nums text-[var(--text-secondary)]">
               CSV · {result.csvRowCount} rows × {result.csvColCount} cols
             </span>
           )}
@@ -205,7 +205,7 @@ export function DiffViewer({
             <div
               role="group"
               aria-label="CSV view format"
-              className="instrument-recessed inline-flex rounded-lg border border-[#e2e8f0]/[0.08] p-0.5"
+              className="instrument-recessed inline-flex rounded-lg border border-[var(--border-subtle)] p-0.5"
             >
               <button
                 type="button"
@@ -213,8 +213,8 @@ export function DiffViewer({
                 onClick={() => setViewMode('text')}
                 className={`transition-ui inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ${
                   effectiveViewMode === 'text'
-                    ? 'surface-active bg-[#171f2e] text-[#f1f5f9]'
-                    : 'text-[#94a3b8] hover:text-[#f1f5f9]'
+                    ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 <FileCode2 size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -226,8 +226,8 @@ export function DiffViewer({
                 onClick={() => setViewMode('table')}
                 className={`transition-ui inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ${
                   effectiveViewMode === 'table'
-                    ? 'surface-active bg-[#171f2e] text-[#f1f5f9]'
-                    : 'text-[#94a3b8] hover:text-[#f1f5f9]'
+                    ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                 }`}
               >
                 <Table2 size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -240,10 +240,10 @@ export function DiffViewer({
             type="button"
             aria-pressed={syncScroll}
             onClick={() => setSyncScroll((s) => !s)}
-            className={`transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee] ${
+            className={`transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
               syncScroll
-                ? 'surface-active border-[#22d3ee]/50 bg-[#151c29] text-[#f1f5f9]'
-                : 'border-[#e2e8f0]/[0.08] bg-[#0e1219] text-[#94a3b8] hover:text-[#f1f5f9]'
+                ? 'surface-active border-[var(--border-accent)] bg-[var(--bg-active)] text-[var(--text-primary)]'
+                : 'border-[var(--border-subtle)] bg-[var(--bg-recessed)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'
             }`}
             title="Synchronize scrolling between original and sanitized panes"
           >
@@ -255,14 +255,14 @@ export function DiffViewer({
             type="button"
             onClick={handleCopy}
             disabled={!result.sanitizedText || Boolean(result.csvParseError)}
-            className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#e2e8f0]/[0.1] bg-[#151b26] px-3 text-xs font-medium text-[#f1f5f9] hover:border-[#22d3ee]/50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
+            className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] px-3 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-accent)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
           >
             {copied ? (
               <>
                 <Check
                   size={16}
                   strokeWidth={1.5}
-                  className="text-[#34d399]"
+                  className="text-[var(--text-safe)]"
                   aria-hidden="true"
                 />
                 <span>Copied</span>
@@ -272,7 +272,7 @@ export function DiffViewer({
                 <Copy
                   size={16}
                   strokeWidth={1.5}
-                  className="text-[#94a3b8]"
+                  className="text-[var(--text-muted)]"
                   aria-hidden="true"
                 />
                 <span>Copy</span>
@@ -284,7 +284,7 @@ export function DiffViewer({
             type="button"
             onClick={handleDownloadClick}
             disabled={!result.sanitizedText || Boolean(result.csvParseError)}
-            className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#f1f5f9] px-3.5 text-xs font-medium text-[#080a0f] hover:bg-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
+            className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg bg-[var(--cta-solid)] px-3.5 text-xs font-medium text-[var(--cta-solid-text)] hover:bg-[var(--cta-solid-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
           >
             <Download size={16} strokeWidth={1.5} aria-hidden="true" />
             <span>Download {downloadFileName}</span>
@@ -293,7 +293,7 @@ export function DiffViewer({
       </div>
 
       {/* Instrument Status Strip & Compact Category Legend */}
-      <div className="flex flex-col gap-2 rounded-lg border border-[#e2e8f0]/[0.08] bg-[#0c1018] px-3.5 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-3.5 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
         <div
           aria-label="Entity color legend"
           className="flex flex-wrap items-center gap-x-4 gap-y-1"
@@ -303,7 +303,7 @@ export function DiffViewer({
             return (
               <span
                 key={cat}
-                className="inline-flex items-center gap-1.5 font-mono text-xs tabular-nums text-[#a3a9b8]"
+                className="inline-flex items-center gap-1.5 font-mono text-xs tabular-nums text-[var(--text-secondary)]"
               >
                 <span
                   className={`h-1.5 w-1.5 rounded-full ${meta.dotClass}`}
@@ -319,7 +319,7 @@ export function DiffViewer({
 
         <div
           aria-live="polite"
-          className="font-mono text-xs tabular-nums text-[#a3a9b8]"
+          className="font-mono text-xs tabular-nums text-[var(--text-secondary)]"
         >
           {isProcessing
             ? 'Scanning in background worker...'
@@ -335,7 +335,7 @@ export function DiffViewer({
       {result.csvParseError && (
         <div
           role="alert"
-          className="rounded-lg border border-[#e5484d]/50 bg-[#e5484d]/10 px-3.5 py-2.5 text-xs text-[#f1f5f9]"
+          className="rounded-lg border border-[#e5484d]/50 bg-[#e5484d]/10 px-3.5 py-2.5 text-xs text-[var(--text-primary)]"
         >
           <span className="font-medium">CSV parsing error: </span>
           <span>{result.csvParseError}</span>
@@ -344,10 +344,10 @@ export function DiffViewer({
 
       {/* Format-matched checksum unverified notice */}
       {hasChecksumUnverifiedAadhaar && (
-        <p className="text-xs text-[#a3a9b8]">
+        <p className="text-xs text-[var(--text-secondary)]">
           Note: One or more 12-digit numbers matched the Aadhaar layout but did
           not pass a Verhoeff checksum (marked{' '}
-          <span className="font-mono text-[#f1f5f9]">
+          <span className="font-mono text-[var(--text-primary)]">
             Format-matched · checksum unverified
           </span>
           ) so synthetic test IDs are still masked.
@@ -359,13 +359,13 @@ export function DiffViewer({
         <div
           role="status"
           aria-label="Selected entity validation details"
-          className="instrument-panel flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#22d3ee]/50 px-3.5 py-2.5 text-xs"
+          className="instrument-panel flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--border-accent)] px-3.5 py-2.5 text-xs"
         >
           <div className="flex flex-wrap items-center gap-2.5">
             <Info
               size={16}
               strokeWidth={1.5}
-              className="text-[#22d3ee]"
+              className="text-[var(--text-accent)]"
               aria-hidden="true"
             />
             <span
@@ -374,23 +374,23 @@ export function DiffViewer({
               }`}
               aria-hidden="true"
             />
-            <span className="font-medium text-[#f1f5f9]">
+            <span className="font-medium text-[var(--text-primary)]">
               {PII_CATEGORY_META[selectedEntity.category].label}
             </span>
             {selectedEntity.validationNote && (
-              <span className="rounded border border-[#34d399]/30 bg-[#090c12] px-2 py-0.5 font-mono text-xs text-[#34d399]">
+              <span className="rounded border border-[var(--border-safe)] bg-[var(--bg-recessed)] px-2 py-0.5 font-mono text-xs text-[var(--text-safe)]">
                 {selectedEntity.validationNote}
               </span>
             )}
-            <span className="text-[#8b93a7]">Replacement</span>
-            <code className="rounded border border-[#e2e8f0]/[0.08] bg-[#090c12] px-2 py-0.5 font-mono text-xs text-[#f1f5f9]">
+            <span className="text-[var(--text-muted)]">Replacement</span>
+            <code className="rounded border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-2 py-0.5 font-mono text-xs text-[var(--text-primary)]">
               {selectedEntity.replacement}
             </code>
           </div>
           <button
             type="button"
             onClick={() => setSelectedEntity(null)}
-            className="rounded px-2 py-0.5 text-xs text-[#a3a9b8] hover:text-[#f1f5f9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
+            className="rounded px-2 py-0.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
           >
             Dismiss
           </button>
@@ -399,44 +399,44 @@ export function DiffViewer({
 
       {/* Main Connected Centerpiece */}
       {effectiveViewMode === 'table' && csvTables ? (
-        <div className="protected-panel overflow-hidden rounded-xl border border-[#34d399]/30">
-          <div className="flex items-center justify-between border-b border-[#e2e8f0]/[0.08] bg-[#090c12]/80 px-4 py-2.5 text-xs">
-            <div className="flex items-center gap-2 font-medium text-[#f1f5f9]">
+        <div className="protected-panel overflow-hidden rounded-xl border border-[var(--border-safe)]">
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-protected-header)] px-4 py-2.5 text-xs">
+            <div className="flex items-center gap-2 font-medium text-[var(--text-primary)]">
               <ShieldCheck
                 size={16}
                 strokeWidth={1.5}
-                className="text-[#34d399]"
+                className="text-[var(--text-safe)]"
                 aria-hidden="true"
               />
               <span>CSV table view (protected output)</span>
             </div>
-            <span className="font-mono text-xs text-[#8b93a7]">
+            <span className="font-mono text-xs text-[var(--text-muted)]">
               Formula-leading cells escaped on download
             </span>
           </div>
           <div className="custom-scrollbar max-h-72 overflow-auto sm:max-h-80">
             <table className="w-full border-collapse text-left font-mono text-xs tabular-nums">
-              <thead className="sticky top-0 z-10 bg-[#080a0f] text-xs text-[#a3a9b8]">
+              <thead className="sticky top-0 z-10 bg-[var(--bg-modal)] text-xs text-[var(--text-secondary)]">
                 <tr>
-                  <th className="border-b border-[#e2e8f0]/[0.08] px-3 py-2 font-medium">
+                  <th className="border-b border-[var(--border-subtle)] px-3 py-2 font-medium">
                     Row
                   </th>
                   {(csvTables.sanitizedRows[0] ?? []).map((header, idx) => (
                     <th
                       key={idx}
-                      className="border-b border-[#e2e8f0]/[0.08] px-3 py-2 font-medium text-[#f1f5f9]"
+                      className="border-b border-[var(--border-subtle)] px-3 py-2 font-medium text-[var(--text-primary)]"
                     >
                       Col {idx + 1}: {header}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#e2e8f0]/[0.06]">
+              <tbody className="divide-y divide-[var(--border-subtle)]">
                 {csvTables.sanitizedRows.slice(1).map((row, rIdx) => {
                   const origRow = csvTables.originalRows[rIdx + 1] ?? []
                   return (
-                    <tr key={rIdx} className="hover:bg-[#151b26]/70">
-                      <td className="px-3 py-2 align-top text-[#8b93a7]">
+                    <tr key={rIdx} className="hover:bg-[var(--bg-table-hover)]">
+                      <td className="px-3 py-2 align-top text-[var(--text-muted)]">
                         {rIdx + 1}
                       </td>
                       {row.map((cell, cIdx) => {
@@ -448,15 +448,15 @@ export function DiffViewer({
                             key={cIdx}
                             className={`whitespace-pre-wrap px-3 py-2 align-top ${
                               changed
-                                ? 'bg-[#34d399]/10 text-[#f1f5f9]'
-                                : 'text-[#a3a9b8]'
+                                ? 'bg-[#34d399]/12 text-[var(--text-primary)]'
+                                : 'text-[var(--text-secondary)]'
                             }`}
                             title={
                               changed ? `Original: ${origCell}` : 'Unchanged'
                             }
                           >
                             {isMultiline && (
-                              <span className="mb-1 inline-block rounded border border-[#22d3ee]/40 bg-[#090c12] px-1.5 py-0.5 text-xs text-[#22d3ee]">
+                              <span className="mb-1 inline-block rounded border border-[var(--border-accent)] bg-[var(--bg-recessed)] px-1.5 py-0.5 text-xs text-[var(--text-accent)]">
                                 multiline cell
                               </span>
                             )}
@@ -474,8 +474,8 @@ export function DiffViewer({
       ) : (
         <div className="grid gap-3 lg:grid-cols-[1fr_28px_1fr] lg:items-stretch lg:gap-0">
           {/* Left Panel: Original (Raw / Untrusted Source) */}
-          <div className="instrument-panel flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#e2e8f0]/[0.09]">
-            <div className="flex items-center justify-between border-b border-[#e2e8f0]/[0.08] bg-[#090c12]/70 px-4 py-2.5">
+          <div className="instrument-panel flex min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--border-subtle)]">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <span
                   className="h-2 w-2 rounded-full bg-[#e5484d]"
@@ -483,7 +483,7 @@ export function DiffViewer({
                 />
                 <label
                   htmlFor="raw-pii-input"
-                  className="font-display text-xs font-medium text-[#f1f5f9]"
+                  className="font-display text-xs font-medium text-[var(--text-primary)]"
                 >
                   Original
                 </label>
@@ -491,7 +491,7 @@ export function DiffViewer({
               <div
                 role="tablist"
                 aria-label="Original pane mode"
-                className="instrument-recessed inline-flex rounded-lg border border-[#e2e8f0]/[0.08] p-0.5"
+                className="instrument-recessed inline-flex rounded-lg border border-[var(--border-subtle)] p-0.5"
               >
                 <button
                   ref={editTabRef}
@@ -501,10 +501,10 @@ export function DiffViewer({
                   tabIndex={leftTab === 'edit' ? 0 : -1}
                   onClick={() => setLeftTab('edit')}
                   onKeyDown={handleLeftTabKeyDown}
-                  className={`transition-ui inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee] ${
+                  className={`transition-ui inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
                     leftTab === 'edit'
-                      ? 'surface-active bg-[#171f2e] text-[#f1f5f9]'
-                      : 'text-[#94a3b8] hover:text-[#f1f5f9]'
+                      ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   <FileCode2 size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -518,10 +518,10 @@ export function DiffViewer({
                   tabIndex={leftTab === 'highlights' ? 0 : -1}
                   onClick={() => setLeftTab('highlights')}
                   onKeyDown={handleLeftTabKeyDown}
-                  className={`transition-ui inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee] ${
+                  className={`transition-ui inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
                     leftTab === 'highlights'
-                      ? 'surface-active bg-[#171f2e] text-[#f1f5f9]'
-                      : 'text-[#94a3b8] hover:text-[#f1f5f9]'
+                      ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   <Eye size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -538,14 +538,14 @@ export function DiffViewer({
                 onChange={(e) => onRawInputChange(e.target.value)}
                 placeholder="Paste text or upload a .txt / .csv file to detect and redact PII in this browser"
                 spellCheck={false}
-                className="custom-scrollbar h-64 w-full resize-y bg-transparent p-4 font-mono text-[13px] leading-relaxed text-[#f1f5f9] placeholder:text-[#8b93a7] focus:outline-none sm:h-80"
+                className="custom-scrollbar h-64 w-full resize-y bg-transparent p-4 font-mono text-[13px] leading-relaxed text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none sm:h-80"
               />
             ) : (
               <div
                 ref={leftScrollRef}
                 onScroll={() => handleSyncScroll('left')}
                 aria-label="Original text with detected PII highlighted"
-                className="custom-scrollbar h-64 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-[#f1f5f9] sm:h-80"
+                className="custom-scrollbar h-64 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-[var(--text-primary)] sm:h-80"
               >
                 {rawInput ? (
                   renderHighlightedSegments(
@@ -555,14 +555,14 @@ export function DiffViewer({
                     setSelectedEntity
                   )
                 ) : (
-                  <span className="text-[#8b93a7]">
+                  <span className="text-[var(--text-muted)]">
                     Paste text or upload a file to inspect highlighted entities
                   </span>
                 )}
               </div>
             )}
 
-            <div className="flex items-center justify-between border-t border-[#e2e8f0]/[0.07] bg-[#090c12]/60 px-4 py-1.5 font-mono text-xs tabular-nums text-[#8b93a7]">
+            <div className="flex items-center justify-between border-t border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-4 py-1.5 font-mono text-xs tabular-nums text-[var(--text-muted)]">
               <span>
                 {lineCount} lines · {rawInput.length} chars
               </span>
@@ -575,8 +575,8 @@ export function DiffViewer({
             aria-hidden="true"
             className="flex items-center justify-center lg:flex-col"
           >
-            <div className="h-px flex-1 bg-[#e2e8f0]/[0.08] lg:h-auto lg:w-px" />
-            <div className="mx-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#22d3ee]/40 bg-[#0d1119] text-[#22d3ee] lg:mx-0 lg:my-2">
+            <div className="h-px flex-1 bg-[var(--border-subtle)] lg:h-auto lg:w-px" />
+            <div className="mx-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-accent)] bg-[var(--bg-panel)] text-[var(--text-accent)] lg:mx-0 lg:my-2">
               <ArrowRight
                 size={14}
                 strokeWidth={1.75}
@@ -588,32 +588,32 @@ export function DiffViewer({
                 className="block lg:hidden"
               />
             </div>
-            <div className="h-px flex-1 bg-[#e2e8f0]/[0.08] lg:h-auto lg:w-px" />
+            <div className="h-px flex-1 bg-[var(--border-subtle)] lg:h-auto lg:w-px" />
           </div>
 
           {/* Right Panel: Sanitized (Protected Destination) */}
-          <div className="protected-panel relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-[#34d399]/35">
+          <div className="protected-panel relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--border-safe)]">
             {/* Brief, reduced-motion-safe transformation sweep on update */}
             <div
               key={sweepKey}
               aria-hidden="true"
-              className="scan-sweep-line pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[#22d3ee] to-transparent"
+              className="scan-sweep-line pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--text-accent)] to-transparent"
             />
 
-            <div className="flex items-center justify-between border-b border-[#34d399]/20 bg-[#090e12]/80 px-4 py-2.5">
+            <div className="flex items-center justify-between border-b border-[var(--border-safe)] bg-[var(--bg-protected-header)] px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <span
-                  className="h-2 w-2 rounded-full bg-[#34d399]"
+                  className="h-2 w-2 rounded-full bg-[var(--text-safe)]"
                   aria-hidden="true"
                 />
-                <span className="font-display text-xs font-medium text-[#f1f5f9]">
+                <span className="font-display text-xs font-medium text-[var(--text-primary)]">
                   Sanitized
                 </span>
-                <span className="rounded border border-[#34d399]/30 bg-[#34d399]/10 px-1.5 py-0.5 font-mono text-xs text-[#34d399]">
+                <span className="rounded border border-[var(--border-safe)] bg-[#34d399]/10 px-1.5 py-0.5 font-mono text-xs text-[var(--text-safe)]">
                   Protected output
                 </span>
               </div>
-              <span className="font-mono text-xs tabular-nums text-[#a3a9b8]">
+              <span className="font-mono text-xs tabular-nums text-[var(--text-secondary)]">
                 {result.totalEntities} redacted
               </span>
             </div>
@@ -623,7 +623,7 @@ export function DiffViewer({
                 ref={rightScrollRef}
                 onScroll={() => handleSyncScroll('right')}
                 aria-label="Sanitized output diff preview"
-                className="custom-scrollbar h-64 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-[#f1f5f9] sm:h-80"
+                className="custom-scrollbar h-64 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-[var(--text-primary)] sm:h-80"
               >
                 {renderHighlightedSegments(
                   result.sanitizedSegments,
@@ -637,18 +637,18 @@ export function DiffViewer({
                 aria-label="Sanitized output diff preview"
                 className="flex h-64 flex-col items-center justify-center gap-3 p-6 text-center sm:h-80"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#34d399]/30 bg-[#0c1418]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border-safe)] bg-[var(--bg-protected-well)]">
                   <ShieldCheck
                     size={18}
                     strokeWidth={1.5}
-                    className="text-[#34d399]"
+                    className="text-[var(--text-safe)]"
                     aria-hidden="true"
                   />
                 </div>
-                <p className="font-display text-sm font-medium text-[#f1f5f9]">
+                <p className="font-display text-sm font-medium text-[var(--text-primary)]">
                   Paste text or upload a file
                 </p>
-                <p className="max-w-sm text-xs text-[#a3a9b8]">
+                <p className="max-w-sm text-xs text-[var(--text-secondary)]">
                   Pattern detection, Luhn checks, and redaction execute locally
                   inside this browser tab.
                 </p>
@@ -656,7 +656,7 @@ export function DiffViewer({
                   <button
                     type="button"
                     onClick={() => onLoadSample(SAMPLE_DATASETS[0])}
-                    className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#e2e8f0]/[0.12] bg-[#151b26] px-3 text-xs font-medium text-[#f1f5f9] hover:border-[#22d3ee]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
+                    className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] px-3 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
                   >
                     <FileText size={16} strokeWidth={1.5} aria-hidden="true" />
                     <span>Load fictional sample</span>
@@ -664,7 +664,7 @@ export function DiffViewer({
                   <button
                     type="button"
                     onClick={onRequestUpload}
-                    className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#e2e8f0]/[0.1] bg-[#090c12] px-3 text-xs font-medium text-[#cbd5e1] hover:border-[#22d3ee]/40 hover:text-[#f1f5f9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
+                    className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-recessed)] px-3 text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--border-accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
                   >
                     <Upload size={16} strokeWidth={1.5} aria-hidden="true" />
                     <span>Upload .txt / .csv</span>
@@ -673,7 +673,7 @@ export function DiffViewer({
               </div>
             )}
 
-            <div className="flex items-center justify-between border-t border-[#34d399]/15 bg-[#090e12]/60 px-4 py-1.5 font-mono text-xs tabular-nums text-[#8b93a7]">
+            <div className="flex items-center justify-between border-t border-[var(--border-safe)] bg-[var(--bg-protected-header)] px-4 py-1.5 font-mono text-xs tabular-nums text-[var(--text-muted)]">
               <span>{result.sanitizedText.length} sanitized chars</span>
               <span>Click any badge to inspect</span>
             </div>

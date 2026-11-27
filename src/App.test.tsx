@@ -160,4 +160,25 @@ describe('PII Shield UI & Accessibility', () => {
       (screen.getByLabelText('Original input text') as HTMLTextAreaElement).value
     ).toBe('')
   })
+
+  it('switches between Dark and Light themes and updates document classes', () => {
+    render(<App />)
+
+    const darkBtn = screen.getByRole('button', { name: /^Dark$/i })
+    const lightBtn = screen.getByRole('button', { name: /^Light$/i })
+
+    expect(darkBtn).toHaveAttribute('aria-pressed', 'true')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+
+    fireEvent.click(lightBtn)
+    expect(lightBtn).toHaveAttribute('aria-pressed', 'true')
+    expect(document.documentElement.classList.contains('light')).toBe(true)
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+    expect(localStorage.getItem('pii-shield-theme')).toBe('light')
+
+    fireEvent.click(darkBtn)
+    expect(darkBtn).toHaveAttribute('aria-pressed', 'true')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(localStorage.getItem('pii-shield-theme')).toBe('dark')
+  })
 })

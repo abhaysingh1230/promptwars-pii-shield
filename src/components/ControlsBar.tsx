@@ -90,17 +90,17 @@ export function ControlsBar({
   return (
     <section
       aria-label="Sanitization Controls and Sample Loader"
-      className="instrument-panel space-y-3 rounded-xl border border-[#e2e8f0]/[0.08] p-4"
+      className="instrument-panel space-y-3 rounded-xl border border-[var(--border-subtle)] p-4"
     >
       <div className="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         {/* Segmented Redaction Mode Selector */}
         <div className="space-y-1.5 xl:min-w-[470px]">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-medium text-[#a3a9b8]">
+            <span className="text-xs font-medium text-[var(--text-secondary)]">
               Redaction mode
             </span>
             {mode === 'full' && (
-              <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-[#a3a9b8]">
+              <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-[var(--text-secondary)]">
                 <input
                   type="checkbox"
                   checked={fullMaskStyle === 'typed'}
@@ -109,7 +109,7 @@ export function ControlsBar({
                       e.target.checked ? 'typed' : 'generic'
                     )
                   }
-                  className="h-3.5 w-3.5 rounded border-[#e2e8f0]/20 bg-[#080a0f] accent-[#22d3ee]"
+                  className="h-3.5 w-3.5 rounded border-[var(--border-strong)] bg-[var(--bg-recessed)] accent-[var(--accent-solid)]"
                 />
                 <span>Include type tags</span>
               </label>
@@ -119,7 +119,7 @@ export function ControlsBar({
           <div
             role="group"
             aria-label="Redaction mode selection"
-            className="instrument-recessed grid grid-cols-1 gap-1.5 rounded-lg border border-[#e2e8f0]/[0.07] p-1 sm:grid-cols-3"
+            className="instrument-recessed grid grid-cols-1 gap-1.5 rounded-lg border border-[var(--border-subtle)] p-1 sm:grid-cols-3"
           >
             {MODE_OPTIONS.map((opt) => {
               const active = mode === opt.id
@@ -129,22 +129,22 @@ export function ControlsBar({
                   type="button"
                   aria-pressed={active}
                   onClick={() => onModeChange(opt.id)}
-                  className={`transition-ui relative flex min-h-11 flex-col items-start justify-center rounded-md border px-3 py-1.5 text-left active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee] ${
+                  className={`transition-ui relative flex min-h-11 flex-col items-start justify-center rounded-md border px-3 py-1.5 text-left active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
                     active
-                      ? 'surface-active border-[#22d3ee]/60 bg-[#171f2e] text-[#f1f5f9]'
-                      : 'border-transparent bg-transparent text-[#94a3b8] hover:bg-[#111622] hover:text-[#e2e8f0]'
+                      ? 'surface-active border-[var(--border-accent)] bg-[var(--bg-active)] text-[var(--text-primary)]'
+                      : 'border-transparent bg-transparent text-[var(--text-muted)] hover:bg-[var(--bg-panel)] hover:text-[var(--text-primary)]'
                   }`}
                 >
                   {active && (
                     <span
                       aria-hidden="true"
-                      className="absolute inset-x-3 top-0 h-[1.5px] rounded-full bg-[#22d3ee]"
+                      className="absolute inset-x-3 top-0 h-[1.5px] rounded-full bg-[var(--accent-solid)]"
                     />
                   )}
                   <span className="text-xs font-medium leading-tight">
                     {opt.label}
                   </span>
-                  <span className="mt-0.5 font-mono text-xs text-[#8b93a7]">
+                  <span className="mt-0.5 font-mono text-xs text-[var(--text-muted)]">
                     {opt.example}
                   </span>
                 </button>
@@ -164,8 +164,8 @@ export function ControlsBar({
             onDrop={handleDrop}
             className={`transition-ui flex flex-wrap items-center gap-2 rounded-lg border border-dashed p-1.5 ${
               isDragging
-                ? 'border-[#22d3ee] bg-[#161e2b]'
-                : 'border-[#e2e8f0]/[0.12] bg-[#090c12]'
+                ? 'border-[var(--accent-solid)] bg-[var(--bg-drag)]'
+                : 'border-[var(--border-strong)] bg-[var(--bg-recessed)]'
             }`}
           >
             <input
@@ -179,7 +179,7 @@ export function ControlsBar({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-md border border-[#e2e8f0]/[0.1] bg-[#151b26] px-3 text-xs font-medium text-[#f1f5f9] hover:border-[#22d3ee]/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
+              className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--border-strong)] bg-[var(--bg-panel)] px-3 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-accent)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
             >
               <Upload size={16} strokeWidth={1.5} aria-hidden="true" />
               <span>Upload .txt / .csv</span>
@@ -188,7 +188,7 @@ export function ControlsBar({
             <button
               type="button"
               onClick={() => onLoadSample(SAMPLE_DATASETS[0])}
-              className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-md border border-[#e2e8f0]/[0.1] bg-[#151b26] px-3 text-xs font-medium text-[#f1f5f9] hover:border-[#22d3ee]/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
+              className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--border-strong)] bg-[var(--bg-panel)] px-3 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-accent)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
             >
               <FileText size={16} strokeWidth={1.5} aria-hidden="true" />
               <span>Load fictional sample</span>
@@ -198,7 +198,7 @@ export function ControlsBar({
               type="button"
               onClick={onClear}
               aria-label="Clear input text"
-              className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-md border border-[#e2e8f0]/[0.08] bg-[#0d1119] px-2.5 text-xs font-medium text-[#94a3b8] hover:text-[#f1f5f9] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
+              className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-panel-hover)] px-2.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-primary)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
             >
               <Trash2 size={16} strokeWidth={1.5} aria-hidden="true" />
               <span>Clear</span>
@@ -209,7 +209,7 @@ export function ControlsBar({
               onClick={onDownloadSanitized}
               disabled={!canDownload}
               aria-label={`Toolbar download ${downloadFileName}`}
-              className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-md bg-[#22d3ee] px-3.5 text-xs font-medium text-[#080a0f] hover:bg-[#38e1fa] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[#1a2230] disabled:text-[#64748b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f1f5f9]"
+              className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-md bg-[var(--accent-solid)] px-3.5 text-xs font-medium text-[var(--accent-solid-text)] hover:bg-[var(--accent-solid-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-[var(--bg-disabled)] disabled:text-[var(--text-disabled)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--text-primary)]"
             >
               <Download size={16} strokeWidth={1.5} aria-hidden="true" />
               <span>Download</span>
@@ -218,7 +218,7 @@ export function ControlsBar({
 
           <div className="flex flex-wrap items-center gap-3">
             {activeFileName && (
-              <span className="font-mono text-xs text-[#94a3b8]">
+              <span className="font-mono text-xs text-[var(--text-muted)]">
                 Active: {activeFileName}
               </span>
             )}
@@ -228,7 +228,7 @@ export function ControlsBar({
               aria-expanded={settingsOpen}
               aria-controls="detection-settings-panel"
               onClick={() => setSettingsOpen((o) => !o)}
-              className="transition-ui inline-flex h-8 items-center gap-1.5 rounded-md border border-[#e2e8f0]/[0.08] bg-[#121824] px-2.5 text-xs font-medium text-[#cbd5e1] hover:border-[#22d3ee]/40 hover:text-[#f1f5f9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
+              className="transition-ui inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-panel)] px-2.5 text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--border-accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
             >
               <SlidersHorizontal size={16} strokeWidth={1.5} aria-hidden="true" />
               <span>
@@ -247,7 +247,7 @@ export function ControlsBar({
       {uploadError && (
         <div
           role="alert"
-          className="rounded-lg border border-[#e5484d]/50 bg-[#e5484d]/10 px-3 py-2 text-xs text-[#f1f5f9]"
+          className="rounded-lg border border-[#e5484d]/50 bg-[#e5484d]/10 px-3 py-2 text-xs text-[var(--text-primary)]"
         >
           {uploadError}
         </div>
@@ -257,10 +257,10 @@ export function ControlsBar({
       {settingsOpen && (
         <div
           id="detection-settings-panel"
-          className="space-y-3 border-t border-[#e2e8f0]/[0.08] pt-3"
+          className="space-y-3 border-t border-[var(--border-subtle)] pt-3"
         >
           <div className="space-y-1.5">
-            <span className="block text-xs font-medium text-[#a3a9b8]">
+            <span className="block text-xs font-medium text-[var(--text-secondary)]">
               Active PII detectors
             </span>
             <div className="flex flex-wrap gap-1.5">
@@ -275,10 +275,10 @@ export function ControlsBar({
                     aria-pressed={enabled}
                     onClick={() => onToggleCategory(cat)}
                     title={meta.description}
-                    className={`transition-ui inline-flex h-8 items-center gap-2 rounded-lg border px-2.5 text-xs font-medium active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee] ${
+                    className={`transition-ui inline-flex h-8 items-center gap-2 rounded-lg border px-2.5 text-xs font-medium active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
                       enabled
                         ? meta.badgeClass
-                        : 'border-[#e2e8f0]/[0.06] bg-[#090c12] text-[#8b93a7] line-through opacity-75'
+                        : 'border-[var(--border-subtle)] bg-[var(--bg-recessed)] text-[var(--text-muted)] line-through opacity-75'
                     }`}
                   >
                     <span
@@ -286,7 +286,7 @@ export function ControlsBar({
                       aria-hidden="true"
                     />
                     <span>{meta.label}</span>
-                    <span className="font-mono text-xs tabular-nums text-[#a3a9b8]">
+                    <span className="font-mono text-xs tabular-nums text-[var(--text-secondary)]">
                       {count}
                     </span>
                   </button>
@@ -296,7 +296,7 @@ export function ControlsBar({
           </div>
 
           <div className="space-y-1.5">
-            <span className="block text-xs font-medium text-[#a3a9b8]">
+            <span className="block text-xs font-medium text-[var(--text-secondary)]">
               Fictional sample presets
             </span>
             <div className="flex flex-wrap gap-1.5">
@@ -309,16 +309,16 @@ export function ControlsBar({
                     type="button"
                     onClick={() => onLoadSample(sample)}
                     title={sample.description}
-                    className={`transition-ui inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee] ${
+                    className={`transition-ui inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
                       isLoaded
-                        ? 'surface-active border-[#22d3ee]/60 bg-[#171f2e] text-[#f1f5f9]'
-                        : 'border-[#e2e8f0]/[0.08] bg-[#090c12] text-[#a3a9b8] hover:border-[#e2e8f0]/20 hover:text-[#f1f5f9]'
+                        ? 'surface-active border-[var(--border-accent)] bg-[var(--bg-active)] text-[var(--text-primary)]'
+                        : 'border-[var(--border-subtle)] bg-[var(--bg-recessed)] text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)]'
                     }`}
                   >
                     <FileText
                       size={16}
                       strokeWidth={1.5}
-                      className="text-[#8b93a7]"
+                      className="text-[var(--text-muted)]"
                       aria-hidden="true"
                     />
                     <span>{sample.name}</span>
