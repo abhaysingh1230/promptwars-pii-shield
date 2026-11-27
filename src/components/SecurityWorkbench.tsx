@@ -279,7 +279,7 @@ export function SecurityWorkbench({
       {/* Tab 1: Audit, Luhn Proof & Pseudonym Registry */}
       {activeTab === 'audit' && (
         <div className="grid gap-4 lg:grid-cols-12">
-          <div className="space-y-3 lg:col-span-6">
+          <div className="min-w-0 space-y-3 lg:col-span-6">
             <div className="flex items-start gap-2.5 rounded-lg border border-[#eef0f5]/[0.08] bg-[#0b0d14] p-3 text-xs text-[#a3a9b8]">
               <CheckCircle2
                 size={16}
@@ -345,7 +345,7 @@ export function SecurityWorkbench({
             </div>
           </div>
 
-          <div className="space-y-2 lg:col-span-6">
+          <div className="min-w-0 space-y-2 lg:col-span-6">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-medium text-[#a3a9b8]">
                 {mode === 'pseudonym'
@@ -360,7 +360,7 @@ export function SecurityWorkbench({
                 No PII entities matched with active filters.
               </p>
             ) : mode === 'pseudonym' ? (
-              <div className="custom-scrollbar max-h-48 overflow-auto rounded-lg border border-[#eef0f5]/[0.08] bg-[#0b0d14]">
+              <div className="custom-scrollbar max-h-48 max-w-full overflow-x-auto overflow-y-auto rounded-lg border border-[#eef0f5]/[0.08] bg-[#0b0d14]">
                 <table className="w-full text-left text-xs tabular-nums">
                   <thead className="sticky top-0 bg-[#11141c] text-xs text-[#a3a9b8]">
                     <tr>
@@ -394,7 +394,7 @@ export function SecurityWorkbench({
                 </table>
               </div>
             ) : (
-              <div className="custom-scrollbar max-h-48 overflow-auto rounded-lg border border-[#eef0f5]/[0.08] bg-[#0b0d14]">
+              <div className="custom-scrollbar max-h-48 max-w-full overflow-x-auto overflow-y-auto rounded-lg border border-[#eef0f5]/[0.08] bg-[#0b0d14]">
                 <table className="w-full text-left text-xs tabular-nums">
                   <thead className="sticky top-0 bg-[#11141c] text-xs text-[#a3a9b8]">
                     <tr>

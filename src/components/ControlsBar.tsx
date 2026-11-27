@@ -187,7 +187,7 @@ export function ControlsBar({
           <div
             role="group"
             aria-label="Redaction mode selection"
-            className="grid grid-cols-1 gap-1.5 sm:grid-cols-3"
+            className="grid grid-cols-3 gap-1.5"
           >
             {MODE_OPTIONS.map((opt) => {
               const active = mode === opt.id
@@ -197,14 +197,16 @@ export function ControlsBar({
                   type="button"
                   aria-pressed={active}
                   onClick={() => onModeChange(opt.id)}
-                  className={`transition-unslop flex min-h-10 flex-col items-start justify-center rounded-lg border px-3 py-1.5 text-left active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38bdf8] ${
+                  className={`transition-unslop flex min-h-9 flex-col items-start justify-center rounded-lg border px-2.5 py-1.5 text-left active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38bdf8] sm:min-h-10 sm:px-3 ${
                     active
                       ? 'surface-active border-[#38bdf8]/60 bg-[#1a1e28] text-[#eef0f5]'
                       : 'border-[#eef0f5]/[0.08] bg-[#0b0d14] text-[#a3a9b8] hover:border-[#eef0f5]/20 hover:text-[#eef0f5]'
                   }`}
                 >
-                  <span className="text-xs font-medium">{opt.label}</span>
-                  <span className="font-mono text-xs text-[#7a8296]">
+                  <span className="text-xs font-medium leading-tight">
+                    {opt.label}
+                  </span>
+                  <span className="hidden font-mono text-xs text-[#7a8296] sm:inline">
                     {opt.hint}
                   </span>
                 </button>
@@ -229,7 +231,7 @@ export function ControlsBar({
                   aria-pressed={enabled}
                   onClick={() => onToggleCategory(cat)}
                   title={meta.description}
-                  className={`transition-unslop inline-flex h-9 items-center gap-2 rounded-lg border px-2.5 text-xs font-medium active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38bdf8] ${
+                  className={`transition-unslop inline-flex h-8 items-center gap-1.5 rounded-lg border px-2 text-xs font-medium active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38bdf8] sm:h-9 sm:gap-2 sm:px-2.5 ${
                     enabled
                       ? meta.badgeClass
                       : 'border-[#eef0f5]/[0.06] bg-[#0b0d14] text-[#7a8296] line-through opacity-60'

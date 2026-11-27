@@ -348,28 +348,28 @@ export function DiffViewer({
                   role="tab"
                   aria-selected={leftTab === 'edit'}
                   onClick={() => setLeftTab('edit')}
-                  className={`transition-unslop inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ${
+                  className={`transition-unslop inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs font-medium sm:px-2.5 ${
                     leftTab === 'edit'
                       ? 'surface-active bg-[#1a1e28] text-[#eef0f5]'
                       : 'text-[#a3a9b8] hover:text-[#eef0f5]'
                   }`}
                 >
                   <FileCode2 size={16} strokeWidth={1.5} aria-hidden="true" />
-                  <span>Edit text</span>
+                  <span>Edit</span>
                 </button>
                 <button
                   type="button"
                   role="tab"
                   aria-selected={leftTab === 'highlights'}
                   onClick={() => setLeftTab('highlights')}
-                  className={`transition-unslop inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ${
+                  className={`transition-unslop inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2 text-xs font-medium sm:px-2.5 ${
                     leftTab === 'highlights'
                       ? 'surface-active bg-[#1a1e28] text-[#eef0f5]'
                       : 'text-[#a3a9b8] hover:text-[#eef0f5]'
                   }`}
                 >
                   <Eye size={16} strokeWidth={1.5} aria-hidden="true" />
-                  <span>PII highlights ({result.totalEntities})</span>
+                  <span>Highlights ({result.totalEntities})</span>
                 </button>
               </div>
             </div>

@@ -22,7 +22,7 @@ export function Header({ onOpenPromptLog, onDeviceAiStatus }: HeaderProps) {
             <h1 className="text-base font-semibold leading-none text-[#eef0f5]">
               PII Shield
             </h1>
-            <p className="text-xs text-[#7a8296]">
+            <p className="hidden text-xs text-[#7a8296] sm:inline">
               Browser-only sanitization for logs, resumes, tickets, and CSVs
             </p>
           </div>
