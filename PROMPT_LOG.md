@@ -39,3 +39,12 @@
 
 **Outcome:**  
 - Integrated `re2js` (linear-time DFA/NFA matching verified on `(a+)+$` & `(a|aa)+$` against 50k chars), `libphonenumber-js/max` local metadata, standards-based IPv6 (including IPv4-mapped `::ffff:192.0.2.128`, rejecting `::` and malformed/overlong spans without partial redaction), WCAG contrast & keyboard tabs, modal focus trap, and verified `vercel.json` CSP headers.
+
+---
+
+## Prompt Iteration 5 — Privacy Workstation Redesign & Dark/Light Theme Switcher
+**Prompt Goal:**  
+> Refine the UI into a calm, responsive 2026 privacy workstation with connected Original → Sanitized panels, locally bundled typography, live processing readout, and a switchable Dark/Light theme.
+
+**Outcome:**  
+- Bundled `@fontsource/space-grotesk` locally (`font-src 'self'`), added connected `Original` → `Sanitized` workspace panels with entity inspection and reduced-motion scan sweep, and implemented CSS-variable-backed `Dark` and `Light` themes verified across desktop (`1366×768`) and mobile (`375×812`) with zero external network calls.

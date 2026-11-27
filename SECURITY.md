@@ -2,10 +2,10 @@
 
 ## 1. Local Browser Execution & Network Behavior
 - **Local Processing:** All PII scanning, Luhn/Verhoeff checks, phone validation (`libphonenumber-js/max` bundled locally), CSV parsing, redaction, and downloads run inside browser memory (`src/engine/` and `src/workers/sanitizer.worker.ts`).
-- **Zero Third-Party Runtime Assets:** Uses system UI and monospace font stacks with no external font CDNs, analytics, or remote API calls.
+- **Zero Third-Party Runtime Assets:** Uses locally bundled `@fontsource/space-grotesk` (`font-src 'self'`) and system UI/monospace stacks with no external font CDNs, analytics, or remote API calls.
 - **Content Security Policy:** `vercel.json`, `nginx.conf.template`, and `firebase.json` enforce:
   `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'none';`
-- **No Local Persistence:** Raw user inputs are never written to `localStorage`, `sessionStorage`, `IndexedDB`, or cookies.
+- **No PII Persistence:** Raw user inputs and detected PII are never written to `localStorage`, `sessionStorage`, `IndexedDB`, or cookies (`localStorage` is used solely for the `pii-shield-theme` `'dark'`/`'light'` preference).
 
 ## 2. Format Matches vs. Checksum Validation & Known Limitations
 - **Credit Cards (13–19 digits):** Verified with Luhn mod-10 (`luhnDiagnostics()`) so non-Luhn numeric IDs are preserved.

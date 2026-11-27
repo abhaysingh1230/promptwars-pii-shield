@@ -8,7 +8,8 @@
 
 ## Key Capabilities & Supported Formats
 
-- **Processed in This Browser:** Scanning, validation, redaction, and downloads run locally in browser memory using system fonts and zero third-party CDNs or remote APIs.
+- **Processed in This Browser:** Scanning, validation, redaction, and downloads run locally in browser memory using locally bundled fonts (`@fontsource/space-grotesk`) and system stacks—with zero third-party CDNs or remote APIs.
+- **Dark & Light Workstation Themes:** Instant header switcher (`Dark` / `Light`) persisting only the UI theme preference locally while maintaining strict contrast and zero external requests.
 - **6 Built-in PII Detectors + Standards Validators:**
   - **Credit Cards (13–19 digits):** Luhn mod-10 checksum validated to prevent false positives on random IDs
   - **Indian PAN:** Uppercase (`ABCDE1234F`) and mixed/lowercase ITD entity-coded formats
