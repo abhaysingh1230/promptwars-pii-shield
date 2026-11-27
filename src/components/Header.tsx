@@ -35,7 +35,15 @@ export function Header({
     <header className="sticky top-0 z-30 border-b border-[var(--border-subtle)] bg-[var(--bg-header)] backdrop-blur-sm">
       <div className="mx-auto flex min-h-16 max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
         <div className="flex items-center gap-3">
-          <div className="surface-active flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border-accent)] bg-gradient-to-b from-[var(--bg-active)] to-[var(--bg-panel)]">
+          <div className="surface-active relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--border-accent)] bg-gradient-to-b from-[var(--bg-active)] to-[var(--bg-panel)]">
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-1 text-[var(--text-accent)] opacity-35"
+              viewBox="0 0 32 32"
+              fill="none"
+            >
+              <path d="M1 6V1H6M26 1H31V6M1 26V31H6M26 31H31V26" stroke="currentColor" strokeWidth="1.25" />
+            </svg>
             <Shield
               size={18}
               strokeWidth={1.6}

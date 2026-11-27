@@ -78,7 +78,7 @@ function renderHighlightedSegments(
         aria-label={tooltip}
         className={`transition-ui inline cursor-pointer rounded px-1 py-0.5 font-mono text-[13px] ${
           variant === 'original' ? meta.highlightClass : meta.redactedClass
-        } ${isSelected ? 'ring-2 ring-[var(--accent-solid)]' : ''}`}
+        } ${isSelected ? 'pii-selected ring-1 ring-[var(--accent-solid)]' : ''}`}
       >
         {seg.text}
       </button>
@@ -131,7 +131,12 @@ export function DiffViewer({
       e.validationNote === 'Format-matched · checksum unverified'
   )
 
-  // Key forces brief CSS sweep only when input content or mode actually changes
+  const activeSelectedEntity = useMemo(() => {
+    if (!rawInput || !selectedEntity) return null
+    return result.entities.find((e) => e.id === selectedEntity.id) ?? selectedEntity
+  }, [rawInput, selectedEntity, result.entities])
+
+  // Key triggers brief directional update cue only when non-empty result changes
   const sweepKey = `${mode}:${rawInput.length}:${result.totalEntities}`
 
   function handleLeftTabKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
@@ -360,7 +365,7 @@ export function DiffViewer({
       )}
 
       {/* Precision Selected Entity Detail Popover */}
-      {selectedEntity && (
+      {activeSelectedEntity && (
         <div
           role="status"
           aria-label="Selected entity validation details"
@@ -375,21 +380,21 @@ export function DiffViewer({
             />
             <span
               className={`h-2 w-2 rounded-full ${
-                PII_CATEGORY_META[selectedEntity.category].dotClass
+                PII_CATEGORY_META[activeSelectedEntity.category].dotClass
               }`}
               aria-hidden="true"
             />
             <span className="font-display font-medium text-[var(--text-primary)]">
-              {PII_CATEGORY_META[selectedEntity.category].label}
+              {PII_CATEGORY_META[activeSelectedEntity.category].label}
             </span>
-            {selectedEntity.validationNote && (
+            {activeSelectedEntity.validationNote && (
               <span className="rounded-md border border-[var(--border-safe)] bg-[var(--bg-protected-well)] px-2 py-0.5 font-mono text-xs text-[var(--text-safe)]">
-                {selectedEntity.validationNote}
+                {activeSelectedEntity.validationNote}
               </span>
             )}
             <span className="text-[var(--text-muted)]">→ Replacement</span>
             <code className="rounded-md border border-[var(--border-strong)] bg-[var(--bg-recessed)] px-2 py-0.5 font-mono text-xs text-[var(--text-primary)]">
-              {selectedEntity.replacement}
+              {activeSelectedEntity.replacement}
             </code>
           </div>
           <button
@@ -399,6 +404,16 @@ export function DiffViewer({
           >
             Dismiss
           </button>
+        </div>
+      )}
+
+      {/* Workspace-wide thin scan line active only while Web Worker processing runs */}
+      {isProcessing && (
+        <div
+          aria-hidden="true"
+          className="relative h-0.5 w-full overflow-hidden rounded-full bg-[var(--border-subtle)]"
+        >
+          <div className="processing-scan-line h-full bg-gradient-to-r from-transparent via-[var(--text-accent)] to-transparent" />
         </div>
       )}
 
@@ -556,7 +571,7 @@ export function DiffViewer({
                   renderHighlightedSegments(
                     result.originalSegments,
                     'original',
-                    selectedEntity?.id ?? null,
+                    activeSelectedEntity?.id ?? null,
                     setSelectedEntity
                   )
                 ) : (
@@ -580,8 +595,13 @@ export function DiffViewer({
             aria-hidden="true"
             className="flex items-center justify-center lg:flex-col"
           >
-            <div className="h-px flex-1 bg-[var(--border-subtle)] lg:h-auto lg:w-px" />
-            <div className="mx-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-accent)] bg-[var(--bg-panel)] text-[var(--text-accent)] lg:mx-0 lg:my-2">
+            <div className="h-px flex-1 bg-gradient-to-r from-[var(--border-subtle)] via-[var(--border-accent)] to-[var(--border-subtle)] opacity-70 lg:h-auto lg:w-px lg:bg-gradient-to-b" />
+            <div
+              key={rawInput ? `pulse-${sweepKey}` : 'idle'}
+              className={`mx-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--border-accent)] bg-[var(--bg-panel)] text-[var(--text-accent)] lg:mx-0 lg:my-2 ${
+                rawInput ? 'connector-pulse' : ''
+              }`}
+            >
               <ArrowRight
                 size={14}
                 strokeWidth={1.75}
@@ -593,17 +613,29 @@ export function DiffViewer({
                 className="block lg:hidden"
               />
             </div>
-            <div className="h-px flex-1 bg-[var(--border-subtle)] lg:h-auto lg:w-px" />
+            <div className="h-px flex-1 bg-gradient-to-r from-[var(--border-subtle)] via-[var(--border-accent)] to-[var(--border-subtle)] opacity-70 lg:h-auto lg:w-px lg:bg-gradient-to-b" />
           </div>
 
           {/* Right Panel: Sanitized (Protected Destination) */}
           <div className="protected-panel relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--border-safe)]">
-            {/* Brief, reduced-motion-safe transformation sweep on update */}
-            <div
-              key={sweepKey}
+            {/* Small inline SVG corner calibration ticks */}
+            <svg
               aria-hidden="true"
-              className="scan-sweep-line pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--text-accent)] to-transparent"
-            />
+              className="pointer-events-none absolute right-2 top-2 h-3 w-3 text-[var(--text-safe)] opacity-45"
+              viewBox="0 0 12 12"
+              fill="none"
+            >
+              <path d="M2 1H11V10" stroke="currentColor" strokeWidth="1.25" />
+            </svg>
+
+            {/* Brief, reduced-motion-safe transformation sweep only when non-empty result updates */}
+            {rawInput && (
+              <div
+                key={sweepKey}
+                aria-hidden="true"
+                className="scan-sweep-line pointer-events-none absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-[var(--text-accent)] to-transparent"
+              />
+            )}
 
             <div className="flex items-center justify-between border-b border-[var(--border-safe)] bg-[var(--bg-protected-header)] px-4 py-2.5">
               <div className="flex items-center gap-2">
@@ -633,7 +665,7 @@ export function DiffViewer({
                 {renderHighlightedSegments(
                   result.sanitizedSegments,
                   'sanitized',
-                  selectedEntity?.id ?? null,
+                  activeSelectedEntity?.id ?? null,
                   setSelectedEntity
                 )}
               </div>

@@ -38,6 +38,7 @@
     --accent-solid: #22d3ee;
     --accent-solid-hover: #38e1fa;
     --accent-solid-text: #080a0f;
+    --accent-glow: rgba(34, 211, 238, 0.34);
     --cta-solid: #f1f5f9;
     --cta-solid-hover: #ffffff;
     --cta-solid-text: #080a0f;
@@ -46,14 +47,14 @@
   html.light {
     color-scheme: light;
 
-    --bg-canvas: #f5f7fb;
+    --bg-canvas: #f3f6fb;
     --bg-header: rgba(255, 255, 255, 0.92);
     --bg-panel: #ffffff;
     --bg-panel-hover: #f1f5f9;
     --bg-active: #e6eef8;
-    --bg-recessed: #f1f5f9;
+    --bg-recessed: #eef2f8;
     --bg-badge: #f8fafc;
-    --bg-protected-header: rgba(236, 253, 245, 0.9);
+    --bg-protected-header: rgba(236, 253, 245, 0.92);
     --bg-protected-well: #ecfdf5;
     --bg-overlay: rgba(15, 23, 42, 0.45);
     --bg-modal: #ffffff;
@@ -77,6 +78,7 @@
     --accent-solid: #0891b2;
     --accent-solid-hover: #0e7490;
     --accent-solid-text: #ffffff;
+    --accent-glow: rgba(8, 145, 178, 0.24);
     --cta-solid: #0f172a;
     --cta-solid-hover: #1e293b;
     --cta-solid-text: #ffffff;
@@ -196,6 +198,12 @@ html.light .surface-active {
   }
 }
 
+.pii-selected {
+  box-shadow:
+    0 0 0 1px var(--accent-solid),
+    0 0 12px -2px var(--accent-glow);
+}
+
 @keyframes sanitize-sweep {
   0% {
     transform: translateX(-100%);
@@ -210,13 +218,47 @@ html.light .surface-active {
   }
 }
 
+@keyframes processing-sweep {
+  0% {
+    transform: translateX(-60%);
+  }
+  100% {
+    transform: translateX(160%);
+  }
+}
+
+@keyframes connector-pulse {
+  0% {
+    transform: scale(0.94);
+    box-shadow: 0 0 0 0 var(--accent-glow);
+  }
+  50% {
+    transform: scale(1.06);
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
 .scan-sweep-line {
   opacity: 0;
 }
 
+.processing-scan-line {
+  width: 45%;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .scan-sweep-line {
-    animation: sanitize-sweep 340ms var(--ease-ui) 1;
+    animation: sanitize-sweep 280ms var(--ease-ui) 1;
+  }
+  .processing-scan-line {
+    animation: processing-sweep 1.05s linear infinite;
+  }
+  .connector-pulse {
+    animation: connector-pulse 280ms var(--ease-ui) 1;
   }
 }
 
@@ -224,8 +266,13 @@ html.light .surface-active {
   .transition-ui {
     transition-duration: 0.01ms;
   }
-  .scan-sweep-line {
+  .scan-sweep-line,
+  .processing-scan-line,
+  .connector-pulse,
+  .animate-card-reveal {
     animation: none;
+  }
+  .scan-sweep-line {
     display: none;
   }
 }

@@ -155,10 +155,23 @@ describe('PII Shield UI & Accessibility', () => {
       screen.getByLabelText('Sanitized output diff preview').textContent
     ).toContain('rohan.sharma@fintechcorp.in')
 
+    const preview = screen.getByLabelText('Sanitized output diff preview')
+    fireEvent.click(
+      within(preview).getAllByRole('button', { name: /Credit card/i })[0]
+    )
+    expect(
+      screen.getByRole('status', { name: /Selected entity validation details/i })
+    ).toBeInTheDocument()
+
     fireEvent.click(screen.getByRole('button', { name: /Clear input text/i }))
     expect(
       (screen.getByLabelText('Original input text') as HTMLTextAreaElement).value
     ).toBe('')
+    expect(
+      screen.queryByRole('status', {
+        name: /Selected entity validation details/i,
+      })
+    ).not.toBeInTheDocument()
   })
 
   it('switches between Dark and Light themes and updates document classes', () => {
