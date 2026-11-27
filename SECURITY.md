@@ -1,24 +1,22 @@
 # Security & Privacy Architecture — PII Shield
 
-## 1. Browser-Only Execution & Zero Third-Party Requests
-- **Client-Side Execution Only:** All PII scanning, Luhn/Verhoeff checksums, CSV parsing, redaction, and file downloads execute strictly in browser memory (`src/engine/` and `src/workers/sanitizer.worker.ts`).
-- **Zero External Assets or API Calls:** System sans and monospace fonts are used locally—no external font CDNs, analytics, or remote APIs are loaded at runtime.
-- **Browser-Enforced CSP (`connect-src 'none'`):** `vercel.json`, `nginx.conf.template`, and `firebase.json` enforce:
+## 1. Local Browser Execution & Network Behavior
+- **Local Processing:** All PII scanning, Luhn/Verhoeff checks, phone validation (`libphonenumber-js/max` bundled locally), CSV parsing, redaction, and downloads run inside browser memory (`src/engine/` and `src/workers/sanitizer.worker.ts`).
+- **Zero Third-Party Runtime Assets:** Uses system UI and monospace font stacks with no external font CDNs, analytics, or remote API calls.
+- **Content Security Policy:** `vercel.json`, `nginx.conf.template`, and `firebase.json` enforce:
   `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'none';`
 - **No Local Persistence:** Raw user inputs are never written to `localStorage`, `sessionStorage`, `IndexedDB`, or cookies.
 
-## 2. XSS, CSV, and ReDoS Defenses
-- **Pure JSX Rendering:** Highlighted diff segments render via React JSX elements; `dangerouslySetInnerHTML`, `innerHTML`, and `eval` are never used.
-- **CSV Hardening (`src/engine/csv.ts`):**
-  - `parseCsvStrict()` rejects unterminated quotes and invalid post-quote characters with explicit line errors.
-  - `escapeCsvFormula()` neutralizes spreadsheet formula injection (`=`, `+`, `-`, `@`, `\t`, `\r`) on sanitized CSV exports.
-- **ReDoS & Resource Limits:**
-  - `validateCustomRegex()` rejects nested-quantifier ReDoS patterns (`(a+)+`, `(a|aa)+`) and empty-matching expressions.
-  - Enabled custom rules run inside a terminable Web Worker (`src/workers/sanitizer.worker.ts`) guarded by an **800 ms watchdog** that calls `worker.terminate()` on runaway execution.
-  - File uploads are restricted to `.txt` / `.csv` and capped at 5 MB.
+## 2. Format Matches vs. Checksum Validation & Known Limitations
+- **Credit Cards (13–19 digits):** Verified with Luhn mod-10 (`luhnDiagnostics()`) so non-Luhn numeric IDs are preserved.
+- **Indian Aadhaar (12 digits):** Matched by UID format and explicitly labeled either `Verhoeff checksum verified` or `Format-matched · checksum unverified` so synthetic test IDs are still masked.
+- **Phone Numbers:** Validated locally against bundled `libphonenumber-js/max` numbering plans; unprefixed 10-digit Indian numbers require mobile prefixes `6–9` (STD landlines require `0` or `+91`).
+- **IPv6:** Validates full, compressed, loopback (`::1`), and IPv4-mapped (`::ffff:192.0.2.128`) forms per RFC 4291 / 5952. Excludes the unspecified address (`::` / `0:0:0:0:0:0:0:0`) and prevents partial redaction of malformed/overlong strings.
+- **Limitation:** Unstructured prose PII (free-form person names, physical addresses) is not automatically detected unless targeted with a custom RE2 rule.
 
-## 3. Encrypted Pseudonym Vault (`src/engine/cryptoVault.ts`)
-- Optional vault exports use browser-native **Web Crypto API (`window.crypto.subtle`)**:
-  - **KDF:** `PBKDF2` with `SHA-256` (**600,000 iterations**, random 128-bit salt per export)
-  - **Passphrase Policy:** Minimum **12 characters** with at least two character classes
-  - **Cipher:** `AES-GCM-256` (random 96-bit IV per export)
+## 3. Custom Rules (RE2 Linear-Time), CSV Hardening, and Vault Encryption
+- **Linear-Time Custom Rules (`re2js`):** Compiled and executed with Google's RE2 DFA/NFA engine (`re2js`) inside a Web Worker with an 800 ms watchdog—preventing catastrophic backtracking freezes.
+- **CSV Protection (`src/engine/csv.ts`):**
+  - `parseCsvStrict()` reports unterminated quotes and invalid post-quote characters with line errors.
+  - `escapeCsvFormula()` escapes cells starting with `\t`, `\r`, or leading whitespace/control characters followed by `=`, `+`, `-`, or `@`.
+- **Encrypted Vault (`src/engine/cryptoVault.ts`):** Uses Web Crypto `PBKDF2-SHA256` (**600,000 iterations**) + `AES-GCM-256` with a **12+ character mixed passphrase** policy.

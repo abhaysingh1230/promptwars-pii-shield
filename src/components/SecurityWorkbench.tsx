@@ -503,8 +503,8 @@ export function SecurityWorkbench({
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-xs text-[#a3a9b8]">
-                  Custom rules run in an isolated Web Worker with ReDoS pattern
-                  rejection and an 800 ms watchdog timeout.
+                  Custom rules compile with Google&apos;s RE2 linear-time engine
+                  (re2js) inside a Web Worker with an 800 ms watchdog.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {PRESET_CUSTOM_RULES.map((preset) => (
@@ -534,7 +534,7 @@ export function SecurityWorkbench({
                   aria-label="Custom rule regex pattern"
                   value={pattern}
                   onChange={(e) => setPattern(e.target.value)}
-                  placeholder="Regex pattern (nested quantifiers rejected)"
+                  placeholder="RE2 pattern (linear-time O(n))"
                   className="h-9 rounded-lg border border-[#eef0f5]/[0.1] bg-[#090b10] px-3 font-mono text-xs text-[#eef0f5] placeholder:text-[#7a8296] focus:border-[#22d3ee] focus:outline-none sm:col-span-6"
                 />
                 <button

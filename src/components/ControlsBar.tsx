@@ -139,7 +139,7 @@ export function ControlsBar({
                   <span className="text-xs font-medium leading-tight">
                     {opt.label}
                   </span>
-                  <span className="mt-0.5 font-mono text-xs text-[#7a8296]">
+                  <span className="mt-0.5 font-mono text-xs text-[#8b93a7]">
                     {opt.example}
                   </span>
                 </button>
@@ -273,7 +273,7 @@ export function ControlsBar({
                     className={`transition-ui inline-flex h-8 items-center gap-2 rounded-lg border px-2.5 text-xs font-medium active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee] ${
                       enabled
                         ? meta.badgeClass
-                        : 'border-[#eef0f5]/[0.06] bg-[#090b10] text-[#7a8296] line-through opacity-60'
+                        : 'border-[#eef0f5]/[0.06] bg-[#090b10] text-[#8b93a7] line-through opacity-75'
                     }`}
                   >
                     <span

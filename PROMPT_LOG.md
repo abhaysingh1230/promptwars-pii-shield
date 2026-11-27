@@ -17,10 +17,10 @@
 
 ## Prompt Iteration 2 — Multi-PII Detection, Luhn & Edge-Case Hardening
 **Prompt Goal:**  
-> Support Emails, Indian & international phones (`+44`, `+1`, `+91`), IPv4/IPv6, uppercase & mixed-case Indian PAN, Aadhaar, and Luhn-validated Credit Cards with Unicode boundaries and explicit false-positive telemetry.
+> Support Emails, Indian & international phones, IPv4/IPv6, uppercase & mixed-case Indian PAN, Aadhaar, and Luhn-validated Credit Cards with Unicode boundaries and explicit false-positive telemetry.
 
 **Outcome:**  
-- Implemented Luhn mod-10 diagnostics, Verhoeff checksum labeling (`Format-matched · checksum unverified` for synthetic test IDs), mixed-case PAN entity-code validation, compressed IPv6 support, and Unicode boundary lookbehinds.
+- Implemented Luhn mod-10 diagnostics across 13–19 digits, Verhoeff status distinction (`Format-matched · checksum unverified`), mixed-case PAN entity-code validation, and Unicode boundary lookbehinds.
 
 ---
 
@@ -29,13 +29,13 @@
 > Support Full mask, Partial mask, and Pseudonymization across plain text and CSV tables while detecting malformed CSV quotes and preventing spreadsheet formula injection.
 
 **Outcome:**  
-- Added `parseCsvStrict()` for explicit quote error reporting, `escapeCsvFormula()` on sanitized CSV exports, and `PseudonymRegistry` shared across multiline CSV cells.
+- Added `parseCsvStrict()` for explicit quote error reporting, `escapeCsvFormula()` covering leading whitespace/control characters before `=`, `+`, `-`, `@`, and `PseudonymRegistry` shared across multiline CSV cells.
 
 ---
 
-## Prompt Iteration 4 — AppSec Audit Hardening & Workstation UX
+## Prompt Iteration 4 — Linear-Time RE2 Custom Rules, Standards IPv6, Numbering-Plan Phones & Verification
 **Prompt Goal:**  
-> Remove external font requests, enforce strict CSP headers on Vercel (`connect-src 'none'`), guard custom regexes in a terminable Web Worker with ReDoS rejection, harden PBKDF2 to 600,000 iterations, start with a clean empty workspace, and enforce full WCAG keyboard/modal accessibility.
+> Replace heuristic ReDoS prevention with Google's linear-time RE2 engine (`re2js`), validate phones with locally bundled `libphonenumber-js/max`, upgrade IPv6 to full RFC 4291/5952 validation, add a Security & Limitations view, and verify CSP headers + zero external network traffic live.
 
 **Outcome:**  
-- Shipped `vercel.json` security headers, system-font zero-external-request runtime, 800 ms terminable worker watchdog, 600k PBKDF2 + 12-char passphrase vault, keyboard tablist navigation, modal focus trap with focus return, and expanded Vitest suite.
+- Integrated `re2js` (linear-time DFA/NFA matching verified on `(a+)+$` & `(a|aa)+$` against 50k chars), `libphonenumber-js/max` local metadata, standards-based IPv6 (including IPv4-mapped `::ffff:192.0.2.128`, rejecting `::` and malformed/overlong spans without partial redaction), WCAG contrast & keyboard tabs, modal focus trap, and verified `vercel.json` CSP headers.

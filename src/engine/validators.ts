@@ -1,6 +1,6 @@
 /**
  * Client-side cryptographic & structural validators for PII entities.
- * Zero external requests; deterministic O(n) execution.
+ * Zero external requests; deterministic execution.
  */
 
 const VERHOEFF_D: readonly (readonly number[])[] = [
@@ -77,7 +77,6 @@ export function luhnDiagnostics(rawDigits: string): {
 
 /**
  * Validates a payment card digit string (13–19 digits) using the Luhn mod-10 algorithm.
- * Rejects trivial all-identical-digit sequences (e.g., 0000000000000000).
  */
 export function luhnCheck(rawDigits: string): boolean {
   return luhnDiagnostics(rawDigits).valid
@@ -103,7 +102,6 @@ export function detectCardBrand(digits: string): string {
 
 /**
  * Computes Verhoeff checksum validity for 12-digit Indian Aadhaar numbers.
- * Used as a confidence signal without dropping synthetic test IDs.
  */
 export function verhoeffCheck(rawDigits: string): boolean {
   const digits = rawDigits.replace(/\D/g, '')
@@ -142,20 +140,81 @@ export function isValidIpv4(ip: string): boolean {
 }
 
 /**
- * Validates common IPv6 representations (full and :: compressed).
+ * Standards-based RFC 4291 / RFC 5952 IPv6 validator.
+ * Supports full, compressed (::), loopback (::1), and IPv4-embedded (::ffff:192.0.2.128) forms.
+ * Rejects the unspecified address (:: or 0:0:0:0:0:0:0:0) as well as malformed/overlong/incomplete values.
  */
-export function isValidIpv6(ip: string): boolean {
-  if (!ip.includes(':')) return false
-  const doubleColonCount = (ip.match(/::/g) ?? []).length
-  if (doubleColonCount > 1) return false
+export function isValidIpv6(rawIp: string): boolean {
+  const ip = rawIp.trim()
+  if (!ip || !ip.includes(':')) return false
+  if (ip.includes(':::')) return false
 
-  const halves = ip.split('::')
-  const left = halves[0] ? halves[0].split(':') : []
-  const right = halves[1] ? halves[1].split(':') : []
+  const doubleColonMatches = ip.match(/::/g) ?? []
+  if (doubleColonMatches.length > 1) return false
 
-  if (doubleColonCount === 0 && left.length !== 8) return false
-  if (doubleColonCount === 1 && left.length + right.length >= 8) return false
+  // Reject leading/trailing single colon like ":1:2" or "1:2:"
+  if (
+    (ip.startsWith(':') && !ip.startsWith('::')) ||
+    (ip.endsWith(':') && !ip.endsWith('::'))
+  ) {
+    return false
+  }
+
+  // Handle optional embedded IPv4 suffix in the last 32 bits (counts as 2 hextets)
+  let work = ip
+  let ipv4TailHextets = 0
+  if (ip.includes('.')) {
+    const lastColon = ip.lastIndexOf(':')
+    const ipv4Part = ip.slice(lastColon + 1)
+    if (!isValidIpv4(ipv4Part)) return false
+    ipv4TailHextets = 2
+    work = ip.slice(0, lastColon)
+    // Case like "::192.0.2.128" -> work became ":" (restore "::" prefix marker)
+    if (work === ':') {
+      work = '::'
+    } else if (work.endsWith(':')) {
+      // e.g. "64:ff9b::192.0.2.33" -> work ended with "::" before slicing lastColon -> work is "64:ff9b:"
+      if (ip.slice(0, lastColon + 1).endsWith('::')) {
+        work = `${work}:`
+      } else {
+        return false
+      }
+    }
+  }
 
   const hexGroup = /^[0-9a-fA-F]{1,4}$/
-  return [...left, ...right].every((group) => hexGroup.test(group))
+  const targetHextets = 8 - ipv4TailHextets
+
+  if (work.includes('::')) {
+    const [leftStr, rightStr] = work.split('::')
+    const left = leftStr ? leftStr.split(':') : []
+    const right = rightStr ? rightStr.split(':') : []
+    if (!left.every((g) => hexGroup.test(g))) return false
+    if (!right.every((g) => hexGroup.test(g))) return false
+
+    const explicitCount = left.length + right.length
+    if (explicitCount >= targetHextets) return false
+
+    // Reject unspecified all-zeros address (:: or ::0 or 0::0)
+    const allZero =
+      ipv4TailHextets === 0 &&
+      [...left, ...right].every((g) => parseInt(g, 16) === 0)
+    if (allZero) return false
+
+    return true
+  }
+
+  const groups = work.split(':')
+  if (groups.length !== targetHextets) return false
+  if (!groups.every((g) => hexGroup.test(g))) return false
+
+  // Reject expanded unspecified address 0:0:0:0:0:0:0:0
+  if (
+    ipv4TailHextets === 0 &&
+    groups.every((g) => parseInt(g, 16) === 0)
+  ) {
+    return false
+  }
+
+  return true
 }

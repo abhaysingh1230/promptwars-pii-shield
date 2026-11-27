@@ -1,15 +1,17 @@
 import { type RefObject } from 'react'
-import { BookOpen, Shield } from 'lucide-react'
+import { BookOpen, Shield, ShieldCheck } from 'lucide-react'
 
 interface HeaderProps {
-  onOpenPromptLog: () => void
+  onOpenPromptLog: (initialTab: 'security' | 'prompts') => void
   promptLogTriggerRef: RefObject<HTMLButtonElement | null>
+  securityModalTriggerRef: RefObject<HTMLButtonElement | null>
   onDeviceAiStatus: 'available' | 'unavailable'
 }
 
 export function Header({
   onOpenPromptLog,
   promptLogTriggerRef,
+  securityModalTriggerRef,
   onDeviceAiStatus,
 }: HeaderProps) {
   return (
@@ -28,13 +30,13 @@ export function Header({
             <h1 className="text-base font-medium leading-none text-[#eef0f5]">
               PII Shield
             </h1>
-            <p className="hidden text-xs text-[#7a8296] sm:inline">
+            <p className="hidden text-xs text-[#8b93a7] sm:inline">
               Client-side privacy workstation for logs, tickets, resumes, and CSVs
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div
             className="hidden items-center gap-2 font-mono text-xs tabular-nums text-[#a3a9b8] md:inline-flex"
             title="Text and file processing runs locally in browser memory. Static assets are served from this origin."
@@ -45,14 +47,29 @@ export function Header({
             />
             <span>Processed in this browser</span>
             {onDeviceAiStatus === 'available' && (
-              <span className="text-[#7a8296]">· Gemini Nano ready</span>
+              <span className="text-[#8b93a7]">· Gemini Nano ready</span>
             )}
           </div>
 
           <button
+            ref={securityModalTriggerRef}
+            type="button"
+            onClick={() => onOpenPromptLog('security')}
+            className="transition-ui inline-flex h-9 items-center gap-2 rounded-lg border border-[#eef0f5]/[0.1] bg-[#161b26] px-3 text-xs font-medium text-[#eef0f5] hover:border-[#22d3ee]/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
+          >
+            <ShieldCheck
+              size={16}
+              strokeWidth={1.5}
+              className="text-[#a3a9b8]"
+              aria-hidden="true"
+            />
+            <span>Security &amp; limits</span>
+          </button>
+
+          <button
             ref={promptLogTriggerRef}
             type="button"
-            onClick={onOpenPromptLog}
+            onClick={() => onOpenPromptLog('prompts')}
             className="transition-ui inline-flex h-9 items-center gap-2 rounded-lg border border-[#eef0f5]/[0.1] bg-[#161b26] px-3 text-xs font-medium text-[#eef0f5] hover:border-[#22d3ee]/50 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
           >
             <BookOpen

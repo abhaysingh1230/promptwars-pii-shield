@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ControlsBar } from './components/ControlsBar'
 import { DiffViewer } from './components/DiffViewer'
 import { Header } from './components/Header'
-import { PromptLogModal } from './components/PromptLogModal'
+import {
+  PromptLogModal,
+  type InfoModalTab,
+} from './components/PromptLogModal'
 import { SecurityWorkbench } from './components/SecurityWorkbench'
 import type { SampleDataset } from './data/samples'
 import {
@@ -61,6 +64,7 @@ export function App() {
     null
   )
   const [promptLogOpen, setPromptLogOpen] = useState(false)
+  const [infoModalTab, setInfoModalTab] = useState<InfoModalTab>('security')
   const [onDeviceAiStatus, setOnDeviceAiStatus] = useState<
     'available' | 'unavailable'
   >('unavailable')
@@ -70,6 +74,8 @@ export function App() {
   const [isWorkerProcessing, setIsWorkerProcessing] = useState(false)
 
   const promptLogTriggerRef = useRef<HTMLButtonElement>(null)
+  const securityModalTriggerRef = useRef<HTMLButtonElement>(null)
+  const modalOpenerRef = useRef<HTMLButtonElement | null>(null)
   const workerRef = useRef<Worker | null>(null)
   const workerReqIdRef = useRef(0)
 
@@ -396,8 +402,16 @@ export function App() {
       </a>
 
       <Header
-        onOpenPromptLog={() => setPromptLogOpen(true)}
+        onOpenPromptLog={(tab) => {
+          modalOpenerRef.current =
+            tab === 'security'
+              ? securityModalTriggerRef.current
+              : promptLogTriggerRef.current
+          setInfoModalTab(tab)
+          setPromptLogOpen(true)
+        }}
         promptLogTriggerRef={promptLogTriggerRef}
+        securityModalTriggerRef={securityModalTriggerRef}
         onDeviceAiStatus={onDeviceAiStatus}
       />
 
@@ -457,8 +471,10 @@ export function App() {
 
       <PromptLogModal
         open={promptLogOpen}
+        activeTab={infoModalTab}
+        onTabChange={setInfoModalTab}
         onClose={() => setPromptLogOpen(false)}
-        returnFocusRef={promptLogTriggerRef}
+        returnFocusRef={modalOpenerRef}
       />
     </div>
   )

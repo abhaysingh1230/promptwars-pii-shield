@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import {
   Check,
   Copy,
@@ -94,7 +94,19 @@ export function DiffViewer({
 
   const leftScrollRef = useRef<HTMLDivElement>(null)
   const rightScrollRef = useRef<HTMLDivElement>(null)
+  const editTabRef = useRef<HTMLButtonElement>(null)
+  const highlightsTabRef = useRef<HTMLButtonElement>(null)
   const isSyncingRef = useRef(false)
+
+  function handleLeftTabKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault()
+      const next = leftTab === 'edit' ? 'highlights' : 'edit'
+      setLeftTab(next)
+      if (next === 'edit') editTabRef.current?.focus()
+      else highlightsTabRef.current?.focus()
+    }
+  }
 
   const csvTables = useMemo(() => {
     if (!result.isCsv || result.csvParseError) return null
@@ -449,11 +461,14 @@ export function DiffViewer({
                 className="inline-flex rounded-lg border border-[#eef0f5]/[0.08] bg-[#090b10] p-0.5"
               >
                 <button
+                  ref={editTabRef}
                   type="button"
                   role="tab"
                   aria-selected={leftTab === 'edit'}
+                  tabIndex={leftTab === 'edit' ? 0 : -1}
                   onClick={() => setLeftTab('edit')}
-                  className={`transition-ui inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium ${
+                  onKeyDown={handleLeftTabKeyDown}
+                  className={`transition-ui inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee] ${
                     leftTab === 'edit'
                       ? 'surface-active bg-[#161b26] text-[#eef0f5]'
                       : 'text-[#a3a9b8] hover:text-[#eef0f5]'
@@ -463,11 +478,14 @@ export function DiffViewer({
                   <span>Edit</span>
                 </button>
                 <button
+                  ref={highlightsTabRef}
                   type="button"
                   role="tab"
                   aria-selected={leftTab === 'highlights'}
+                  tabIndex={leftTab === 'highlights' ? 0 : -1}
                   onClick={() => setLeftTab('highlights')}
-                  className={`transition-ui inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium ${
+                  onKeyDown={handleLeftTabKeyDown}
+                  className={`transition-ui inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee] ${
                     leftTab === 'highlights'
                       ? 'surface-active bg-[#161b26] text-[#eef0f5]'
                       : 'text-[#a3a9b8] hover:text-[#eef0f5]'
@@ -511,7 +529,7 @@ export function DiffViewer({
               </div>
             )}
 
-            <div className="flex items-center justify-between border-t border-[#eef0f5]/[0.06] bg-[#090b10]/40 px-4 py-1.5 font-mono text-xs tabular-nums text-[#7a8296]">
+            <div className="flex items-center justify-between border-t border-[#eef0f5]/[0.06] bg-[#090b10]/40 px-4 py-1.5 font-mono text-xs tabular-nums text-[#8b93a7]">
               <span>
                 {lineCount} lines · {rawInput.length} chars
               </span>
@@ -583,7 +601,7 @@ export function DiffViewer({
               </div>
             )}
 
-            <div className="flex items-center justify-between border-t border-[#eef0f5]/[0.06] bg-[#090b10]/40 px-4 py-1.5 font-mono text-xs tabular-nums text-[#7a8296]">
+            <div className="flex items-center justify-between border-t border-[#eef0f5]/[0.06] bg-[#090b10]/40 px-4 py-1.5 font-mono text-xs tabular-nums text-[#8b93a7]">
               <span>{result.sanitizedText.length} sanitized chars</span>
               <span>Click any badge to inspect</span>
             </div>

@@ -1,3 +1,5 @@
+import { parsePhoneNumberFromString } from 'libphonenumber-js/max'
+import { RE2JS } from 're2js'
 import {
   PseudonymRegistry,
   normalizeEntityKey,
@@ -37,17 +39,12 @@ const AADHAAR_SPACED_REGEX =
 const AADHAAR_PLAIN_REGEX = /(?<!\d)[2-9]\d{11}(?!\d)/g
 const IPV4_REGEX =
   /(?<![\d.])(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(?![\d.])/g
-const IPV6_REGEX =
-  /(?:(?<=^)|(?<=[\s,|(["'=;])|(?<=IPv6:)|(?<=ipv6:))(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}(?![:\w])/g
-const PHONE_REGEX =
-  /(?<![A-Za-z0-9])(?:\+91[\s.-]?[6-9]\d{4}[\s.-]?\d{5}|\+91[\s.-]?[6-9]\d{9}|0[6-9]\d{9}|[6-9]\d{4}[\s-]\d{5}|[6-9]\d{9}|\+(?:[1-9]\d{0,2})[\s.-]?(?:\(\d{1,4}\)[\s.-]?)?(?:\d[\s.-]?){6,13}\d)(?![A-Za-z0-9])/g
-
-/**
- * Heuristic detector for catastrophic ReDoS patterns such as nested quantifiers
- * like (a+)+, (.*)*, or quantified alternations with overlapping groups.
- */
-const NESTED_QUANTIFIER_REGEX =
-  /\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)[+*?]|\((?:[^()\\]|\\.)*\|(?:[^()\\]|\\.)*\)[+*{]/
+// Captures entire IPv6-like token (including malformed/overlong/IPv4-mapped) so invalid strings are never partially redacted
+const IPV6_CANDIDATE_REGEX =
+  /(?:(?<=^)|(?<=[^\w:.])|(?<=IPv6:)|(?<=ipv6:))[0-9a-zA-Z:.]*:[0-9a-zA-Z:.]*(?![:\w.])/g
+// Candidate phone spans (strictly validated against bundled libphonenumber-js/max metadata)
+const PHONE_CANDIDATE_REGEX =
+  /(?<![A-Za-z0-9])(?:\+(?:[1-9]\d{0,2})[\s.-]?(?:\(\d{1,4}\)[\s.-]?)?(?:\d[\s.-]?){6,14}\d|\(\d{3}\)[\s.-]?\d{3}[\s.-]?\d{4}|0\d{2,4}[\s.-]?\d{6,8}|[6-9]\d{4}[\s.-]?\d{5})(?:\s*(?:ext\.?|extension|x)\s*\d{1,6})?(?![A-Za-z0-9])/gi
 
 interface RawDetectionOutput {
   candidates: PiiCandidate[]
@@ -67,25 +64,71 @@ function createEmptyCounts(): Record<PiiCategory, number> {
 }
 
 /**
- * Validates a user-supplied custom regex pattern before compiling.
- * Rejects empty matches, syntax errors, and nested-quantifier ReDoS patterns.
+ * Validates a user-supplied custom regex pattern using Google's RE2 linear-time engine (re2js).
+ * Guarantees O(n) execution and rejects empty matches, syntax errors, and nonlinear features.
  */
 export function validateCustomRegex(pattern: string): string | null {
   const trimmed = pattern.trim()
   if (!trimmed) return 'Pattern cannot be empty.'
   if (trimmed.length > 200) return 'Pattern exceeds 200-character safety limit.'
-  if (NESTED_QUANTIFIER_REGEX.test(trimmed)) {
-    return 'Pattern rejected: nested quantifiers may freeze the browser (ReDoS risk).'
-  }
   try {
-    const compiled = new RegExp(trimmed, 'g')
-    if (compiled.test('')) {
+    const compiled = RE2JS.compile(trimmed)
+    if (compiled.matcher('').matches() || compiled.matcher('').find()) {
       return 'Pattern must not match empty strings.'
     }
     return null
   } catch (err) {
-    return err instanceof Error ? err.message : 'Invalid regular expression.'
+    return err instanceof Error
+      ? err.message
+      : 'Pattern is not valid in linear-time RE2 syntax.'
   }
+}
+
+function validatePhoneCandidate(raw: string): {
+  valid: boolean
+  country?: string
+  hasExt: boolean
+} {
+  const core = raw.replace(/\s*(?:ext\.?|extension|x)\s*\d{1,6}$/i, '').trim()
+  const hasExt = core.length !== raw.trim().length
+  const digits = core.replace(/\D/g, '')
+
+  if (digits.length < 8 || digits.length > 15) {
+    return { valid: false, hasExt }
+  }
+  if (/^(\d)\1+$/.test(digits)) {
+    return { valid: false, hasExt }
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(core)) {
+    return { valid: false, hasExt }
+  }
+
+  if (core.startsWith('+')) {
+    const parsed = parsePhoneNumberFromString(core)
+    if (!parsed?.isValid()) {
+      return { valid: false, hasExt }
+    }
+    return { valid: true, country: parsed.country, hasExt }
+  }
+
+  if (core.startsWith('(')) {
+    const parsed =
+      parsePhoneNumberFromString(core, 'US') ??
+      parsePhoneNumberFromString(core, 'IN')
+    if (!parsed?.isValid()) {
+      return { valid: false, hasExt }
+    }
+    return { valid: true, country: parsed.country, hasExt }
+  }
+
+  const parsedIn = parsePhoneNumberFromString(core, 'IN')
+  if (!parsedIn?.isValid()) {
+    return { valid: false, hasExt }
+  }
+  if (!core.startsWith('0') && parsedIn.getType() !== 'MOBILE') {
+    return { valid: false, hasExt }
+  }
+  return { valid: true, country: parsedIn.country ?? 'IN', hasExt }
 }
 
 function collectPatternCandidates(
@@ -197,8 +240,23 @@ function collectPatternCandidates(
   }
 
   if (enabledCategories.ip_address) {
-    IPV4_REGEX.lastIndex = 0
+    IPV6_CANDIDATE_REGEX.lastIndex = 0
     let match: RegExpExecArray | null
+    while ((match = IPV6_CANDIDATE_REGEX.exec(text)) !== null) {
+      const raw = match[0]
+      if (!isValidIpv6(raw)) continue
+      candidates.push({
+        category: 'ip_address',
+        raw,
+        normalized: raw.toLowerCase(),
+        start: match.index,
+        end: match.index + raw.length,
+        confidence: 'high',
+        validationNote: raw.includes('.') ? 'IPv6 (IPv4-mapped)' : 'IPv6',
+      })
+    }
+
+    IPV4_REGEX.lastIndex = 0
     while ((match = IPV4_REGEX.exec(text)) !== null) {
       const raw = match[0]
       const prevChar = match.index > 0 ? text[match.index - 1] : ''
@@ -214,34 +272,15 @@ function collectPatternCandidates(
         validationNote: 'IPv4',
       })
     }
-
-    IPV6_REGEX.lastIndex = 0
-    while ((match = IPV6_REGEX.exec(text)) !== null) {
-      const raw = match[0]
-      if (!isValidIpv6(raw)) continue
-      candidates.push({
-        category: 'ip_address',
-        raw,
-        normalized: raw.toLowerCase(),
-        start: match.index,
-        end: match.index + raw.length,
-        confidence: 'high',
-        validationNote: 'IPv6',
-      })
-    }
   }
 
   if (enabledCategories.phone) {
-    PHONE_REGEX.lastIndex = 0
+    PHONE_CANDIDATE_REGEX.lastIndex = 0
     let match: RegExpExecArray | null
-    while ((match = PHONE_REGEX.exec(text)) !== null) {
+    while ((match = PHONE_CANDIDATE_REGEX.exec(text)) !== null) {
       const raw = match[0].trim()
-      const digits = raw.replace(/\D/g, '')
-      if (digits.length < 8 || digits.length > 15) continue
-      // Avoid plain 8-digit non-prefixed numbers; require 10+ digits unless international + prefixed
-      if (!raw.startsWith('+') && digits.length < 10) continue
-      // Avoid matching dates like 2026-11-27
-      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) continue
+      const check = validatePhoneCandidate(raw)
+      if (!check.valid) continue
       candidates.push({
         category: 'phone',
         raw,
@@ -249,6 +288,12 @@ function collectPatternCandidates(
         start: match.index,
         end: match.index + raw.length,
         confidence: 'high',
+        validationNote: [
+          check.country ? `${check.country} numbering plan` : 'Phone',
+          check.hasExt ? 'ext' : '',
+        ]
+          .filter(Boolean)
+          .join(' · '),
       })
     }
   }
@@ -257,24 +302,23 @@ function collectPatternCandidates(
     for (const rule of customRules) {
       if (!rule.enabled) continue
       if (validateCustomRegex(rule.pattern) !== null) continue
-      const regex = new RegExp(rule.pattern, 'g')
-      let match: RegExpExecArray | null
+      const compiled = RE2JS.compile(rule.pattern.trim())
+      const matcher = compiled.matcher(text)
       let guard = 0
-      while ((match = regex.exec(text)) !== null && guard < 5000) {
+      while (matcher.find() && guard < 10_000) {
         guard += 1
-        const raw = match[0]
-        if (!raw) {
-          regex.lastIndex += 1
-          continue
-        }
+        const start = matcher.start()
+        const end = matcher.end()
+        if (end <= start) continue
+        const raw = text.slice(start, end)
         candidates.push({
           category: 'custom',
           raw,
           normalized: raw,
-          start: match.index,
-          end: match.index + raw.length,
+          start,
+          end,
           confidence: 'medium',
-          validationNote: `Custom rule: ${rule.label}`,
+          validationNote: `Custom rule (RE2): ${rule.label}`,
         })
       }
     }

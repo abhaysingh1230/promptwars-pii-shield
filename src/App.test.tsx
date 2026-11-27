@@ -2,12 +2,14 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import App from './App'
 
-describe('PII Shield UI', () => {
-  it('starts with a clean empty workspace and local browser indicator', () => {
+describe('PII Shield UI & Accessibility', () => {
+  it('starts with a clean empty workspace and local processing indicator', () => {
     render(<App />)
 
     expect(screen.getByText('PII Shield')).toBeInTheDocument()
-    expect(screen.getAllByText(/Processed in this browser/i).length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText(/Processed in this browser/i).length
+    ).toBeGreaterThan(0)
     expect(
       screen.getByText(/Paste text or upload a file/i)
     ).toBeInTheDocument()
@@ -16,7 +18,7 @@ describe('PII Shield UI', () => {
     ).toBe('')
   })
 
-  it('loads fictional sample in 1 click and switches redaction modes', () => {
+  it('loads fictional sample, switches redaction modes, and supports keyboard Edit/Highlights tabs', () => {
     render(<App />)
 
     fireEvent.click(
@@ -30,17 +32,13 @@ describe('PII Shield UI', () => {
       screen.getByLabelText('Sanitized output diff preview').textContent
     ).toContain('[REDACTED]')
 
-    const pseudoBtn = screen.getByRole('button', {
-      name: /Pseudonymization/i,
-    })
-    fireEvent.click(pseudoBtn)
-    expect(pseudoBtn).toHaveAttribute('aria-pressed', 'true')
-    expect(
-      screen.getByLabelText('Sanitized output diff preview').textContent
-    ).toContain('EMAIL_01')
+    const editTab = screen.getByRole('tab', { name: /^Edit$/i })
+    fireEvent.keyDown(editTab, { key: 'ArrowRight' })
+    const highlightsTab = screen.getByRole('tab', { name: /Highlights/i })
+    expect(highlightsTab).toHaveAttribute('aria-selected', 'true')
   })
 
-  it('loads fictional CSV sample via Detection settings and displays multiline cell badge in Table diff', () => {
+  it('shows malformed CSV error explicitly and renders multiline cell indicator for valid CSV', () => {
     render(<App />)
 
     fireEvent.click(
@@ -54,15 +52,25 @@ describe('PII Shield UI', () => {
     fireEvent.click(screen.getByRole('button', { name: /Table diff/i }))
     expect(screen.getByText(/CSV table view/i)).toBeInTheDocument()
     expect(screen.getByText(/multiline cell/i)).toBeInTheDocument()
+
+    // Switch back to Raw diff to edit CSV and trigger malformed quote alert
+    fireEvent.click(screen.getByRole('button', { name: /Raw diff/i }))
+    const textarea = screen.getByLabelText('Original input text')
+    fireEvent.change(textarea, {
+      target: { value: 'name,email\n"unterminated,user@test.com' },
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent(/CSV parsing error/i)
   })
 
-  it('supports keyboard tabs in Advanced security tools, custom rules, and round-trip vault', () => {
+  it('supports keyboard tabs in Advanced security tools, RE2 custom rules, and local vault', () => {
     render(<App />)
 
     fireEvent.click(
       screen.getAllByRole('button', { name: /Load fictional sample/i })[0]
     )
-    fireEvent.click(screen.getByRole('button', { name: /Pseudonymization/i }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /Pseudonymization/i })
+    )
     fireEvent.click(
       screen.getByRole('button', { name: /Advanced security tools/i })
     )
@@ -72,7 +80,9 @@ describe('PII Shield UI', () => {
     const rulesTab = screen.getByRole('tab', { name: /Custom rules/i })
     expect(rulesTab).toHaveAttribute('aria-selected', 'true')
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ Indian IFSC Code/i }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /\+ Indian IFSC Code/i })
+    )
     expect(screen.getByText('Indian IFSC Code')).toBeInTheDocument()
 
     fireEvent.keyDown(rulesTab, { key: 'ArrowRight' })
@@ -86,20 +96,30 @@ describe('PII Shield UI', () => {
     expect(restoredPane.textContent).toContain('rohan.sharma@fintechcorp.in')
   })
 
-  it('traps focus in Prompt Log modal and restores focus to trigger on Escape', () => {
+  it('opens Security & limits modal, traps Tab focus, switches modal tabs with ArrowRight, and returns focus on Escape', () => {
     render(<App />)
 
-    const trigger = screen.getByRole('button', { name: /Prompt log/i })
-    fireEvent.click(trigger)
-    expect(
-      screen.getByRole('dialog', {
-        name: /Prompt engineering log and security architecture/i,
-      })
-    ).toBeInTheDocument()
+    const secTrigger = screen.getByRole('button', {
+      name: /Security & limits/i,
+    })
+    fireEvent.click(secTrigger)
 
+    const dialog = screen.getByRole('dialog', {
+      name: /Security, detection limits, and prompt log/i,
+    })
+    expect(dialog).toBeInTheDocument()
+    expect(screen.getByText(/Known limitations/i)).toBeInTheDocument()
+
+    const secTab = screen.getByRole('tab', { name: /Security & limitations/i })
+    fireEvent.keyDown(secTab, { key: 'ArrowRight' })
+    expect(
+      screen.getByRole('tab', { name: /Prompt log/i })
+    ).toHaveAttribute('aria-selected', 'true')
+
+    // Escape closes and returns focus to trigger
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    expect(document.activeElement).toBe(trigger)
+    expect(document.activeElement).toBe(secTrigger)
   })
 
   it('rejects unsupported/oversized files and allows toggling detectors and clearing', () => {

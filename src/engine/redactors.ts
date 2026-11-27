@@ -1,3 +1,4 @@
+import { parsePhoneNumberFromString } from 'libphonenumber-js/max'
 import type {
   FullMaskStyle,
   PiiCategory,
@@ -17,8 +18,6 @@ const PSEUDONYM_PREFIX: Record<PiiCategory, string> = {
 
 /**
  * Produces a canonical key for recurring entity consistency in Pseudonymization mode.
- * For example, "Alice@Corp.com" and "alice@corp.com", or "+91 98765 43210" and "9876543210",
- * resolve to the same pseudonym token within a document.
  */
 export function normalizeEntityKey(category: PiiCategory, raw: string): string {
   switch (category) {
@@ -33,12 +32,21 @@ export function normalizeEntityKey(category: PiiCategory, raw: string): string {
     case 'aadhaar':
       return raw.replace(/\D/g, '')
     case 'phone': {
-      const digits = raw.replace(/\D/g, '')
+      const strippedExt = raw.replace(/\s*(?:ext\.?|extension|x)\s*\d{1,6}$/i, '').trim()
+      const parsed =
+        parsePhoneNumberFromString(
+          strippedExt,
+          strippedExt.startsWith('(') ? 'US' : 'IN'
+        ) ?? parsePhoneNumberFromString(strippedExt, 'IN')
+      if (parsed?.isValid()) {
+        return parsed.number
+      }
+      const digits = strippedExt.replace(/\D/g, '')
       if (digits.length === 12 && digits.startsWith('91')) {
-        return digits.slice(2)
+        return `+${digits}`
       }
       if (digits.length === 11 && digits.startsWith('0')) {
-        return digits.slice(1)
+        return `+91${digits.slice(1)}`
       }
       return digits
     }
@@ -85,13 +93,18 @@ export function maskPartial(category: PiiCategory, raw: string): string {
       return `${visible}***@${domain}`
     }
     case 'phone': {
-      const digits = raw.replace(/\D/g, '')
+      const core = raw.replace(/\s*(?:ext\.?|extension|x)\s*\d{1,6}$/i, '').trim()
+      const digits = core.replace(/\D/g, '')
       const last4 = digits.slice(-4)
-      const hasPlus = raw.trim().startsWith('+')
-      if (hasPlus && digits.length > 10) {
+      const parsed = core.startsWith('+')
+        ? parsePhoneNumberFromString(core)
+        : undefined
+      if (parsed?.countryCallingCode) {
+        return `+${parsed.countryCallingCode} ******${last4}`
+      }
+      if (core.startsWith('+') && digits.length > 10) {
         const ccLen = digits.length - 10
-        const cc = digits.slice(0, ccLen)
-        return `+${cc} ******${last4}`
+        return `+${digits.slice(0, ccLen)} ******${last4}`
       }
       const hiddenCount = Math.max(4, digits.length - 4)
       return `${'X'.repeat(hiddenCount)}${last4}`

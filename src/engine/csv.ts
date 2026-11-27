@@ -16,7 +16,34 @@ export interface CsvParseValidationResult {
   error?: string
 }
 
-const FORMULA_PREFIX_REGEX = /^[=+\-@\t\r]/
+const FORMULA_TRIGGER_CHARS = new Set(['=', '+', '-', '@'])
+
+/**
+ * Prevents spreadsheet formula execution (=, +, -, @, tab, CR, or leading whitespace/control chars
+ * followed by a formula trigger) when sanitized CSV exports are opened in Excel or Google Sheets.
+ */
+export function escapeCsvFormula(value: string): string {
+  if (!value) return value
+  if (value.startsWith('\t') || value.startsWith('\r')) {
+    return `'${value}`
+  }
+
+  let i = 0
+  while (i < value.length) {
+    const code = value.charCodeAt(i)
+    const ch = value[i]
+    if (code <= 0x20 || /\s/.test(ch)) {
+      i++
+      continue
+    }
+    if (FORMULA_TRIGGER_CHARS.has(ch)) {
+      return `'${value}`
+    }
+    break
+  }
+
+  return value
+}
 
 /**
  * Strictly parses RFC-4180 CSV content and explicitly detects malformed quoting:
@@ -144,16 +171,6 @@ export function parseCsvStrict(input: string): CsvParseValidationResult {
 export function parseCsv(input: string): string[][] {
   const parsed = parseCsvStrict(input)
   return parsed.ok ? parsed.rows : []
-}
-
-/**
- * Prevents spreadsheet formula execution (=, +, -, @, tab, CR) in exported CSV cells.
- */
-export function escapeCsvFormula(value: string): string {
-  if (FORMULA_PREFIX_REGEX.test(value)) {
-    return `'${value}`
-  }
-  return value
 }
 
 /**
