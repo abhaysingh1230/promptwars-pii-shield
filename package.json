@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/space-grotesk": "^5.3.0",
     "libphonenumber-js": "^1.13.17",
     "lucide-react": "^1.81.0",
     "re2js": "^2.10.0",

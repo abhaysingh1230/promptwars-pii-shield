@@ -413,6 +413,9 @@ export function App() {
         promptLogTriggerRef={promptLogTriggerRef}
         securityModalTriggerRef={securityModalTriggerRef}
         onDeviceAiStatus={onDeviceAiStatus}
+        totalEntities={result.totalEntities}
+        mode={mode}
+        processingMs={result.processingMs}
       />
 
       <main
@@ -443,6 +446,7 @@ export function App() {
           rawInput={rawInput}
           onRawInputChange={handleRawInputChange}
           result={result}
+          mode={mode}
           isProcessing={isWorkerProcessing && useBackgroundWorker}
           downloadFileName={downloadFileName}
           onDownloadSanitized={handleDownloadSanitized}

@@ -192,7 +192,7 @@ export function SecurityWorkbench({
   return (
     <section
       aria-labelledby="advanced-tools-heading"
-      className="rounded-xl border border-[#eef0f5]/[0.08] bg-[#0f131b]"
+      className="instrument-panel rounded-xl border border-[#e2e8f0]/[0.08]"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
         <button
@@ -200,7 +200,7 @@ export function SecurityWorkbench({
           aria-expanded={expanded}
           aria-controls="advanced-security-tools-body"
           onClick={() => setExpanded((e) => !e)}
-          className="transition-ui inline-flex items-center gap-2 text-left text-sm font-medium text-[#eef0f5] hover:text-[#22d3ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
+          className="transition-ui inline-flex items-center gap-2 text-left font-display text-sm font-medium text-[#f1f5f9] hover:text-[#22d3ee] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
         >
           {expanded ? (
             <ChevronDown size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -208,7 +208,7 @@ export function SecurityWorkbench({
             <ChevronRight size={16} strokeWidth={1.5} aria-hidden="true" />
           )}
           <span id="advanced-tools-heading">Advanced security tools</span>
-          <span className="font-mono text-xs tabular-nums text-[#7a8296]">
+          <span className="font-mono text-xs tabular-nums text-[#8b93a7]">
             · Luhn filtered: {result.luhnRejected.length} · Custom rules:{' '}
             {customRules.length} · Vault
           </span>
@@ -218,7 +218,7 @@ export function SecurityWorkbench({
           type="button"
           onClick={onDownloadAuditJson}
           disabled={!result.originalText || Boolean(result.csvParseError)}
-          className="transition-ui inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#eef0f5]/[0.1] bg-[#161b26] px-2.5 text-xs font-medium text-[#eef0f5] hover:border-[#22d3ee]/50 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
+          className="transition-ui inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#e2e8f0]/[0.1] bg-[#151b26] px-2.5 text-xs font-medium text-[#f1f5f9] hover:border-[#22d3ee]/50 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#22d3ee]"
         >
           <FileJson
             size={16}
