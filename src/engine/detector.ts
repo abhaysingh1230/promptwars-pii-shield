@@ -186,6 +186,7 @@ function collectPatternCandidates(
         start: match.index,
         end: match.index + raw.length,
         confidence: 'high',
+        validationNote: 'Email syntax pattern (format-matched)',
       })
     }
   }

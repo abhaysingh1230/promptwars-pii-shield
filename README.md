@@ -2,13 +2,20 @@
 
 > **PromptWars × NIAT Pune 2026 — Cybersecurity & Data Privacy Track**  
 > **Live App:** https://promptwars-pii-shield.vercel.app  
-> A **browser-only** data sanitization workstation that detects, validates, and redacts sensitive PII in pasted text, `.txt`, and `.csv` files locally inside browser memory—with **zero third-party runtime requests** and **strict CSP headers (`connect-src 'none'`)**.
+> A **local-first prompt privacy workbench** that lets users inspect sensitive prompts, logs, tickets, resumes, and CSVs, redact PII locally inside browser memory, and verify the sanitized output—and browser resource checks—before sharing with an AI tool.
 
 ---
 
-## Key Capabilities & Supported Formats
+## Why Local-First Prompt Privacy Matters
 
-- **Processed in This Browser:** Scanning, validation, redaction, and downloads run locally in browser memory using locally bundled fonts (`@fontsource/space-grotesk`) and system stacks—with zero third-party CDNs or remote APIs.
+Pasting raw logs, support exports, or spreadsheets into external AI tools exposes payment cards, government IDs, phone numbers, and internal IPs before a prompt ever receives a response. Sending that same raw payload to a third-party redaction server just shifts the trust boundary. PII Shield runs the entire detection, validation, pseudonymization, CSV escaping, and audit workflow **inside the user's own browser tab**.
+
+## How It Works & Supported Capabilities
+
+- **Processed in This Browser:** Scanning, Luhn/Verhoeff validation, bundled `libphonenumber-js/max` numbering-plan checks, linear-time `re2js` rules (Web Worker), CSV escaping, and file downloads execute locally in memory using locally bundled `@fontsource/space-grotesk` and system fonts.
+- **Verifiable Privacy Status Panel:** One-click **Privacy status** panel explains what executes locally and displays only actual entries observed by the browser's `performance.getEntriesByType('resource')` API alongside a reminder to verify live traffic in DevTools → Network.
+- **Confidence & Validation Transparency:** Distinguishes **Checksum / plan verified** detections (Luhn mod-10 cards, Verhoeff-verified Aadhaar, `libphonenumber-js/max` phone plans, strict IPv4/RFC IPv6) from **Format-matched** detections (syntax emails, PAN, unverified Aadhaar, custom RE2 rules).
+- **1-Click Synthetic Accuracy Benchmark:** Reproducible in-app benchmark (`src/engine/benchmark.ts`) covering all PII types, 13–19 digit valid/invalid Luhn cards, overlaps, mixed-case PAN, Unicode boundaries, IPv4/IPv6 edge cases, international phones, strict/multiline/malformed CSV, formula injection, and cross-row pseudonyms—reporting passed/failed cases, false positives, false negatives, and runtime ms.
 - **Dark & Light Workstation Themes:** Instant header switcher (`Dark` / `Light`) persisting only the UI theme preference locally while maintaining strict contrast and zero external requests.
 - **6 Built-in PII Detectors + Standards Validators:**
   - **Credit Cards (13–19 digits):** Luhn mod-10 checksum validated to prevent false positives on random IDs

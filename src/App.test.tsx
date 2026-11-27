@@ -194,4 +194,30 @@ describe('PII Shield UI & Accessibility', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(true)
     expect(localStorage.getItem('pii-shield-theme')).toBe('dark')
   })
+
+  it('opens verifiable Privacy status, runs 1-click synthetic benchmark, and flags formula-escaped CSV cells', () => {
+    render(<App />)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /HR export \.csv/i })
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Table diff/i }))
+    expect(
+      screen.getAllByText(/formula escaped on export/i).length
+    ).toBeGreaterThan(0)
+
+    fireEvent.click(screen.getByRole('button', { name: /Privacy status/i }))
+    expect(
+      screen.getByText(/What is processed locally in this browser/i)
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText(/Browser-observable resource check/i)
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Run benchmark/i }))
+    expect(
+      screen.getByText(/Reproducible synthetic accuracy benchmark/i)
+    ).toBeInTheDocument()
+    expect(screen.getByText('9/9')).toBeInTheDocument()
+  })
 })

@@ -25,6 +25,20 @@ import {
   type SanitizeResult,
 } from '../engine/types'
 
+function isVerifiedEntity(entity: PiiEntity): boolean {
+  if (
+    entity.category === 'credit_card' ||
+    entity.category === 'phone' ||
+    entity.category === 'ip_address'
+  ) {
+    return true
+  }
+  if (entity.category === 'aadhaar') {
+    return entity.validationNote === 'Verhoeff checksum verified'
+  }
+  return false
+}
+
 interface DiffViewerProps {
   rawInput: string
   onRawInputChange: (value: string) => void
@@ -135,6 +149,12 @@ export function DiffViewer({
     if (!rawInput || !selectedEntity) return null
     return result.entities.find((e) => e.id === selectedEntity.id) ?? selectedEntity
   }, [rawInput, selectedEntity, result.entities])
+
+  const verifiedCount = useMemo(
+    () => result.entities.filter(isVerifiedEntity).length,
+    [result.entities]
+  )
+  const formatOnlyCount = result.totalEntities - verifiedCount
 
   // Key triggers brief directional update cue only when non-empty result changes
   const sweepKey = `${mode}:${rawInput.length}:${result.totalEntities}`
@@ -337,7 +357,9 @@ export function DiffViewer({
               ? downloadAnnouncement
               : copied
                 ? 'Copied sanitized output to clipboard'
-                : `${result.totalEntities} entities · ${MODE_SHORT_LABEL[mode]} · ${result.processingMs} ms`}
+                : result.totalEntities > 0
+                  ? `${result.totalEntities} entities (${verifiedCount} verified · ${formatOnlyCount} format-only) · ${MODE_SHORT_LABEL[mode]} · ${result.processingMs} ms`
+                  : `0 entities · ${MODE_SHORT_LABEL[mode]} · ${result.processingMs} ms`}
         </div>
       </div>
 
@@ -387,9 +409,20 @@ export function DiffViewer({
             <span className="font-display font-medium text-[var(--text-primary)]">
               {PII_CATEGORY_META[activeSelectedEntity.category].label}
             </span>
+            <span
+              className={`rounded-md border px-2 py-0.5 font-mono text-xs ${
+                isVerifiedEntity(activeSelectedEntity)
+                  ? 'border-[var(--border-safe)] bg-[var(--bg-protected-well)] text-[var(--text-safe)]'
+                  : 'border-[#f59e0b]/45 bg-[#f59e0b]/10 text-[var(--text-warn)]'
+              }`}
+            >
+              {isVerifiedEntity(activeSelectedEntity)
+                ? 'Checksum / plan verified'
+                : 'Format-matched · review recommended'}
+            </span>
             {activeSelectedEntity.validationNote && (
-              <span className="rounded-md border border-[var(--border-safe)] bg-[var(--bg-protected-well)] px-2 py-0.5 font-mono text-xs text-[var(--text-safe)]">
-                {activeSelectedEntity.validationNote}
+              <span className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-2 py-0.5 font-mono text-xs text-[var(--text-secondary)]">
+                Why: {activeSelectedEntity.validationNote}
               </span>
             )}
             <span className="text-[var(--text-muted)]">→ Replacement</span>
@@ -463,6 +496,8 @@ export function DiffViewer({
                         const origCell = origRow[cIdx] ?? ''
                         const changed = cell !== origCell
                         const isMultiline = cell.includes('\n')
+                        const isFormulaEscaped =
+                          cell.startsWith("'") && !origCell.startsWith("'")
                         return (
                           <td
                             key={cIdx}
@@ -475,10 +510,19 @@ export function DiffViewer({
                               changed ? `Original: ${origCell}` : 'Unchanged'
                             }
                           >
-                            {isMultiline && (
-                              <span className="mb-1 inline-block rounded border border-[var(--border-accent)] bg-[var(--bg-recessed)] px-1.5 py-0.5 text-xs text-[var(--text-accent)]">
-                                multiline cell
-                              </span>
+                            {(isMultiline || isFormulaEscaped) && (
+                              <div className="mb-1 flex flex-wrap gap-1">
+                                {isMultiline && (
+                                  <span className="inline-block rounded border border-[var(--border-accent)] bg-[var(--bg-recessed)] px-1.5 py-0.5 text-xs text-[var(--text-accent)]">
+                                    multiline cell
+                                  </span>
+                                )}
+                                {isFormulaEscaped && (
+                                  <span className="inline-block rounded border border-[#f59e0b]/45 bg-[#f59e0b]/10 px-1.5 py-0.5 text-xs text-[var(--text-warn)]">
+                                    formula escaped on export
+                                  </span>
+                                )}
+                              </div>
                             )}
                             <div>{cell}</div>
                           </td>
@@ -687,8 +731,8 @@ export function DiffViewer({
                     Paste text or upload a file
                   </p>
                   <p className="max-w-sm text-xs text-[var(--text-secondary)]">
-                    Detection, Luhn checks, and redaction run 100% locally in
-                    this browser tab.
+                    Inspect sensitive prompts, logs, or CSVs and verify
+                    sanitized output locally before sharing with an AI tool.
                   </p>
                 </div>
                 <div className="flex flex-wrap justify-center gap-2 pt-0.5">

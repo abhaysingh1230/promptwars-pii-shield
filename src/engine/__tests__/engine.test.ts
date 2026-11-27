@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SAMPLE_DATASETS } from '../../data/samples'
+import { runSyntheticBenchmark } from '../benchmark'
 import {
   detectOnDeviceAiStatus,
   generateOnDevicePrivacySummary,
@@ -359,8 +360,16 @@ describe('Vault, validators metadata, network audit, and on-device AI helpers', 
     expect(assessment.rawRiskScore).toBeGreaterThanOrEqual(75)
 
     const net = inspectClientNetworkEgress()
-    expect(net.verifiedZeroExternalTraffic).toBe(true)
     expect(net.externalCalls).toBe(0)
+    expect(net.verifiedZeroExternalTraffic).toBe(false)
+
+    const benchmark = runSyntheticBenchmark()
+    expect(benchmark.isSynthetic).toBe(true)
+    expect(benchmark.totalCases).toBe(9)
+    expect(benchmark.passedCases).toBe(9)
+    expect(benchmark.failedCases).toBe(0)
+    expect(benchmark.falsePositives).toBe(0)
+    expect(benchmark.falseNegatives).toBe(0)
 
     expect(await detectOnDeviceAiStatus()).toBe('unavailable')
     const advice = await generateOnDevicePrivacySummary(

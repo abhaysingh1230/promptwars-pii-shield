@@ -48,3 +48,12 @@
 
 **Outcome:**  
 - Bundled `@fontsource/space-grotesk` locally (`font-src 'self'`), added connected `Original` → `Sanitized` workspace panels with entity inspection and reduced-motion scan sweep, and implemented CSS-variable-backed `Dark` and `Light` themes verified across desktop (`1366×768`) and mobile (`375×812`) with zero external network calls.
+
+---
+
+## Prompt Iteration 6 — Verifiable Privacy Panel, Confidence Clarity & Reproducible Benchmark
+**Prompt Goal:**  
+> Position PII Shield as a local-first prompt privacy workbench, replace source-only network claims with verifiable Resource Timing checks, clarify checksum-verified vs format-matched confidence, add a 1-click synthetic accuracy benchmark, and tighten the CSV judge demo flow.
+
+**Outcome:**  
+- Added **Privacy status** and **Accuracy benchmark** (9 synthetic edge-case suites tracking passed/failed, false positives, false negatives, and execution time) inside `SecurityWorkbench`, updated `networkAudit.ts` to report only observed Performance Resource Timing entries, distinguished verified vs format-matched detections in `DiffViewer`, and enriched `hr-csv` with Verhoeff-valid + unverified Aadhaar, Luhn valid/invalid cards, repeated cross-row pseudonyms, multiline cells, and a formula-leading cell flagged in Table Diff.

@@ -61,7 +61,7 @@ export function Header({
               </span>
             </div>
             <p className="mt-1 hidden text-xs text-[var(--text-muted)] sm:block">
-              Private in-browser sanitizer for logs, tickets, resumes &amp; CSVs
+              Local-first prompt privacy workbench — inspect, redact &amp; verify before sharing with AI
             </p>
           </div>
         </div>

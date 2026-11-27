@@ -29,13 +29,13 @@ export const SAMPLE_DATASETS: readonly SampleDataset[] = [
     name: 'HR export .csv (fictional)',
     format: 'csv',
     description:
-      'Fictional CSV table with multiline quoted cell, recurring emails, PAN, Aadhaar, and phone numbers',
+      'Synthetic CSV with email, phone, PAN, Verhoeff-valid & unverified Aadhaar, Luhn valid/invalid cards, multiline cell, repeated IDs, and formula cell',
     content: `employee_id,full_name,email,phone,pan_number,aadhaar_number,client_ip,corporate_card
-EMP-101,Aarav Mehta,aarav.mehta@niatdemo.edu,+91 98201 11223,BXZPM4821K,5421 7789 3310,172.16.40.12,4111 1111 1111 1111
+EMP-101,Aarav Mehta,aarav.mehta@niatdemo.edu,+91 98201 11223,BXZPM4821K,5421 7789 3313,172.16.40.12,4111 1111 1111 1111
 EMP-102,"Sneha Kulkarni
 Note: Ward SO3",sneha.k@niatdemo.edu,97654 32109,CHNPK9032L,6890 1123 4455,172.16.40.19,5500000000000004
-EMP-103,Aarav Mehta (Duplicate),aarav.mehta@niatdemo.edu,9820111223,BXZPM4821K,5421-7789-3310,172.16.40.12,1234567890123456
-EMP-104,Vikram Joshi,vikram.joshi@partner.io,+1 (415) 555-0192,DERTJ1122M,7741 9082 6615,203.0.113.77,378282246310005`,
+EMP-103,Aarav Mehta (Duplicate),aarav.mehta@niatdemo.edu,9820111223,BXZPM4821K,5421-7789-3313,172.16.40.12,1234567890123456
+EMP-104,=SUM(B2:B4) Vikram,vikram.joshi@partner.io,+1 (415) 555-0192,DERTJ1122M,7741 9082 6615,203.0.113.77,378282246310005`,
   },
   {
     id: 'clinical-notes',

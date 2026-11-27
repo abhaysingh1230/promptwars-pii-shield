@@ -28,6 +28,7 @@
     --text-disabled: #64748b;
     --text-accent: #22d3ee;
     --text-safe: #34d399;
+    --text-warn: #fbbf24;
     --text-danger: #f87171;
 
     --border-subtle: rgba(226, 232, 240, 0.08);
@@ -68,6 +69,7 @@
     --text-disabled: #94a3b8;
     --text-accent: #0891b2;
     --text-safe: #047857;
+    --text-warn: #b45309;
     --text-danger: #dc2626;
 
     --border-subtle: rgba(15, 23, 42, 0.1);
