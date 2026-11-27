@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   ArrowDown,
   ArrowRight,
@@ -7,37 +7,24 @@ import {
   Download,
   Eye,
   FileCode2,
-  FileText,
-  Info,
   Link2,
-  ShieldCheck,
   Table2,
-  Upload,
 } from 'lucide-react'
-import { SAMPLE_DATASETS, type SampleDataset } from '../data/samples'
+import type { SampleDataset } from '../data/samples'
 import { parseCsv } from '../engine/csv'
 import {
   BUILTIN_CATEGORIES,
   PII_CATEGORY_META,
-  type DiffSegment,
   type PiiEntity,
   type RedactionMode,
   type SanitizeResult,
 } from '../engine/types'
-
-function isVerifiedEntity(entity: PiiEntity): boolean {
-  if (
-    entity.category === 'credit_card' ||
-    entity.category === 'phone' ||
-    entity.category === 'ip_address'
-  ) {
-    return true
-  }
-  if (entity.category === 'aadhaar') {
-    return entity.validationNote === 'Verhoeff checksum verified'
-  }
-  return false
-}
+import { handleRovingTabKeyDown } from '../hooks/useRovingTabs'
+import { CsvTableView } from './diff/CsvTableView'
+import { EmptyWorkspace } from './diff/EmptyWorkspace'
+import { EntityInspector } from './diff/EntityInspector'
+import { HighlightedSegments } from './diff/HighlightedSegments'
+import { isVerifiedEntity } from './diff/entityConfidence'
 
 interface DiffViewerProps {
   rawInput: string
@@ -51,55 +38,19 @@ interface DiffViewerProps {
   onRequestUpload: () => void
 }
 
+type LeftPaneTab = 'edit' | 'highlights'
+const LEFT_TAB_ORDER: readonly LeftPaneTab[] = ['edit', 'highlights']
+
 const MODE_SHORT_LABEL: Record<RedactionMode, string> = {
   full: 'Full mask',
   partial: 'Partial mask',
   pseudonym: 'Pseudonym',
 }
 
-function renderHighlightedSegments(
-  segments: DiffSegment[],
-  variant: 'original' | 'sanitized',
-  selectedId: string | null,
-  onSelectEntity: (entity: PiiEntity) => void
-) {
-  if (segments.length === 0) {
-    return null
-  }
-
-  return segments.map((seg, idx) => {
-    if (seg.type === 'text' || !seg.entity) {
-      return <span key={idx}>{seg.text}</span>
-    }
-
-    const entity = seg.entity
-    const meta = PII_CATEGORY_META[entity.category]
-    const isSelected = selectedId === entity.id
-    const tooltip = [
-      meta.label,
-      entity.validationNote ? `(${entity.validationNote})` : '',
-      variant === 'original' ? `→ ${entity.replacement}` : `← redacted`,
-    ]
-      .filter(Boolean)
-      .join(' ')
-
-    return (
-      <button
-        key={`${entity.id}-${idx}`}
-        type="button"
-        onClick={() => onSelectEntity(entity)}
-        title={tooltip}
-        aria-label={tooltip}
-        className={`transition-ui inline cursor-pointer rounded px-1 py-0.5 font-mono text-[13px] ${
-          variant === 'original' ? meta.highlightClass : meta.redactedClass
-        } ${isSelected ? 'pii-selected ring-1 ring-[var(--accent-solid)]' : ''}`}
-      >
-        {seg.text}
-      </button>
-    )
-  })
-}
-
+/**
+ * Connected side-by-side Original -> Sanitized workspace with interactive highlight
+ * inspection, synchronized scroll, CSV table diff, and accessible live feedback.
+ */
 export function DiffViewer({
   rawInput,
   onRawInputChange,
@@ -113,15 +64,17 @@ export function DiffViewer({
 }: DiffViewerProps) {
   const [copied, setCopied] = useState(false)
   const [downloadAnnouncement, setDownloadAnnouncement] = useState('')
-  const [leftTab, setLeftTab] = useState<'edit' | 'highlights'>('edit')
+  const [leftTab, setLeftTab] = useState<LeftPaneTab>('edit')
   const [viewMode, setViewMode] = useState<'text' | 'table'>('text')
   const [syncScroll, setSyncScroll] = useState(true)
   const [selectedEntity, setSelectedEntity] = useState<PiiEntity | null>(null)
 
   const leftScrollRef = useRef<HTMLDivElement>(null)
   const rightScrollRef = useRef<HTMLDivElement>(null)
-  const editTabRef = useRef<HTMLButtonElement>(null)
-  const highlightsTabRef = useRef<HTMLButtonElement>(null)
+  const leftTabRefs = useRef<Record<LeftPaneTab, HTMLButtonElement | null>>({
+    edit: null,
+    highlights: null,
+  })
   const isSyncingRef = useRef(false)
 
   const csvTables = useMemo(() => {
@@ -137,7 +90,8 @@ export function DiffViewer({
     result.sanitizedText,
   ])
 
-  const effectiveViewMode = result.isCsv && !result.csvParseError ? viewMode : 'text'
+  const effectiveViewMode =
+    result.isCsv && !result.csvParseError ? viewMode : 'text'
   const lineCount = rawInput ? rawInput.split(/\r\n|\r|\n/).length : 0
   const hasChecksumUnverifiedAadhaar = result.entities.some(
     (e) =>
@@ -155,19 +109,7 @@ export function DiffViewer({
     [result.entities]
   )
   const formatOnlyCount = result.totalEntities - verifiedCount
-
-  // Key triggers brief directional update cue only when non-empty result changes
   const sweepKey = `${mode}:${rawInput.length}:${result.totalEntities}`
-
-  function handleLeftTabKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      e.preventDefault()
-      const next = leftTab === 'edit' ? 'highlights' : 'edit'
-      setLeftTab(next)
-      if (next === 'edit') editTabRef.current?.focus()
-      else highlightsTabRef.current?.focus()
-    }
-  }
 
   function handleSyncScroll(source: 'left' | 'right') {
     if (!syncScroll || isSyncingRef.current) return
@@ -190,7 +132,7 @@ export function DiffViewer({
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
     } catch {
-      // Clipboard may be unavailable in restricted test environments
+      // Clipboard may be unavailable in restricted environments
     }
   }
 
@@ -200,9 +142,17 @@ export function DiffViewer({
     setTimeout(() => setDownloadAnnouncement(''), 2500)
   }
 
+  const liveStatusText = isProcessing
+    ? 'Scanning in background worker...'
+    : downloadAnnouncement ||
+      (copied
+        ? 'Copied sanitized output to clipboard'
+        : result.totalEntities > 0
+          ? `${result.totalEntities} entities (${verifiedCount} verified · ${formatOnlyCount} format-only) · ${MODE_SHORT_LABEL[mode]} · ${result.processingMs} ms`
+          : `0 entities · ${MODE_SHORT_LABEL[mode]} · ${result.processingMs} ms`)
+
   return (
     <section aria-labelledby="diff-heading" className="space-y-3">
-      {/* Workspace Header Bar */}
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-3">
           <h2
@@ -232,32 +182,31 @@ export function DiffViewer({
               aria-label="CSV view format"
               className="instrument-recessed inline-flex rounded-lg border border-[var(--border-subtle)] p-0.5"
             >
-              <button
-                type="button"
-                aria-pressed={effectiveViewMode === 'text'}
-                onClick={() => setViewMode('text')}
-                className={`transition-ui inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ${
-                  effectiveViewMode === 'text'
-                    ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <FileCode2 size={16} strokeWidth={1.5} aria-hidden="true" />
-                <span>Raw diff</span>
-              </button>
-              <button
-                type="button"
-                aria-pressed={effectiveViewMode === 'table'}
-                onClick={() => setViewMode('table')}
-                className={`transition-ui inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ${
-                  effectiveViewMode === 'table'
-                    ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <Table2 size={16} strokeWidth={1.5} aria-hidden="true" />
-                <span>Table diff</span>
-              </button>
+              {(
+                [
+                  { id: 'text', label: 'Raw diff', icon: FileCode2 },
+                  { id: 'table', label: 'Table diff', icon: Table2 },
+                ] as const
+              ).map((item) => {
+                const Icon = item.icon
+                const active = effectiveViewMode === item.id
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setViewMode(item.id)}
+                    className={`transition-ui inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium ${
+                      active
+                        ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
+                        : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </button>
+                )
+              })}
             </div>
           )}
 
@@ -317,7 +266,6 @@ export function DiffViewer({
         </div>
       </div>
 
-      {/* Instrument Status Strip & Compact Category Legend */}
       <div className="instrument-panel flex flex-col gap-2 rounded-xl border border-[var(--border-subtle)] px-3.5 py-2.5 text-xs sm:flex-row sm:items-center sm:justify-between">
         <div
           aria-label="Entity color legend"
@@ -351,19 +299,10 @@ export function DiffViewer({
           aria-live="polite"
           className="font-mono text-xs tabular-nums text-[var(--text-secondary)]"
         >
-          {isProcessing
-            ? 'Scanning in background worker...'
-            : downloadAnnouncement
-              ? downloadAnnouncement
-              : copied
-                ? 'Copied sanitized output to clipboard'
-                : result.totalEntities > 0
-                  ? `${result.totalEntities} entities (${verifiedCount} verified · ${formatOnlyCount} format-only) · ${MODE_SHORT_LABEL[mode]} · ${result.processingMs} ms`
-                  : `0 entities · ${MODE_SHORT_LABEL[mode]} · ${result.processingMs} ms`}
+          {liveStatusText}
         </div>
       </div>
 
-      {/* Explicit Malformed CSV Error */}
       {result.csvParseError && (
         <div
           role="alert"
@@ -374,7 +313,6 @@ export function DiffViewer({
         </div>
       )}
 
-      {/* Format-matched checksum unverified notice */}
       {hasChecksumUnverifiedAadhaar && (
         <p className="text-xs text-[var(--text-secondary)]">
           Note: One or more 12-digit numbers matched the Aadhaar layout but did
@@ -386,61 +324,13 @@ export function DiffViewer({
         </p>
       )}
 
-      {/* Precision Selected Entity Detail Popover */}
       {activeSelectedEntity && (
-        <div
-          role="status"
-          aria-label="Selected entity validation details"
-          className="instrument-panel animate-card-reveal flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border-accent)] px-4 py-2.5 text-xs"
-        >
-          <div className="flex flex-wrap items-center gap-2.5">
-            <Info
-              size={16}
-              strokeWidth={1.5}
-              className="text-[var(--text-accent)]"
-              aria-hidden="true"
-            />
-            <span
-              className={`h-2 w-2 rounded-full ${
-                PII_CATEGORY_META[activeSelectedEntity.category].dotClass
-              }`}
-              aria-hidden="true"
-            />
-            <span className="font-display font-medium text-[var(--text-primary)]">
-              {PII_CATEGORY_META[activeSelectedEntity.category].label}
-            </span>
-            <span
-              className={`rounded-md border px-2 py-0.5 font-mono text-xs ${
-                isVerifiedEntity(activeSelectedEntity)
-                  ? 'border-[var(--border-safe)] bg-[var(--bg-protected-well)] text-[var(--text-safe)]'
-                  : 'border-[#f59e0b]/45 bg-[#f59e0b]/10 text-[var(--text-warn)]'
-              }`}
-            >
-              {isVerifiedEntity(activeSelectedEntity)
-                ? 'Checksum / plan verified'
-                : 'Format-matched · review recommended'}
-            </span>
-            {activeSelectedEntity.validationNote && (
-              <span className="rounded-md border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-2 py-0.5 font-mono text-xs text-[var(--text-secondary)]">
-                Why: {activeSelectedEntity.validationNote}
-              </span>
-            )}
-            <span className="text-[var(--text-muted)]">→ Replacement</span>
-            <code className="rounded-md border border-[var(--border-strong)] bg-[var(--bg-recessed)] px-2 py-0.5 font-mono text-xs text-[var(--text-primary)]">
-              {activeSelectedEntity.replacement}
-            </code>
-          </div>
-          <button
-            type="button"
-            onClick={() => setSelectedEntity(null)}
-            className="transition-ui rounded-md border border-transparent px-2 py-1 text-xs text-[var(--text-secondary)] hover:border-[var(--border-subtle)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
-          >
-            Dismiss
-          </button>
-        </div>
+        <EntityInspector
+          entity={activeSelectedEntity}
+          onDismiss={() => setSelectedEntity(null)}
+        />
       )}
 
-      {/* Workspace-wide thin scan line active only while Web Worker processing runs */}
       {isProcessing && (
         <div
           aria-hidden="true"
@@ -450,94 +340,13 @@ export function DiffViewer({
         </div>
       )}
 
-      {/* Main Connected Centerpiece */}
       {effectiveViewMode === 'table' && csvTables ? (
-        <div className="protected-panel overflow-hidden rounded-xl border border-[var(--border-safe)]">
-          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-protected-header)] px-4 py-2.5 text-xs">
-            <div className="flex items-center gap-2 font-medium text-[var(--text-primary)]">
-              <ShieldCheck
-                size={16}
-                strokeWidth={1.5}
-                className="text-[var(--text-safe)]"
-                aria-hidden="true"
-              />
-              <span>CSV table view (protected output)</span>
-            </div>
-            <span className="font-mono text-xs text-[var(--text-muted)]">
-              Formula-leading cells escaped on download
-            </span>
-          </div>
-          <div className="custom-scrollbar max-h-72 overflow-auto sm:max-h-80">
-            <table className="w-full border-collapse text-left font-mono text-xs tabular-nums">
-              <thead className="sticky top-0 z-10 bg-[var(--bg-modal)] text-xs text-[var(--text-secondary)]">
-                <tr>
-                  <th className="border-b border-[var(--border-subtle)] px-3 py-2 font-medium">
-                    Row
-                  </th>
-                  {(csvTables.sanitizedRows[0] ?? []).map((header, idx) => (
-                    <th
-                      key={idx}
-                      className="border-b border-[var(--border-subtle)] px-3 py-2 font-medium text-[var(--text-primary)]"
-                    >
-                      Col {idx + 1}: {header}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-subtle)]">
-                {csvTables.sanitizedRows.slice(1).map((row, rIdx) => {
-                  const origRow = csvTables.originalRows[rIdx + 1] ?? []
-                  return (
-                    <tr key={rIdx} className="hover:bg-[var(--bg-table-hover)]">
-                      <td className="px-3 py-2 align-top text-[var(--text-muted)]">
-                        {rIdx + 1}
-                      </td>
-                      {row.map((cell, cIdx) => {
-                        const origCell = origRow[cIdx] ?? ''
-                        const changed = cell !== origCell
-                        const isMultiline = cell.includes('\n')
-                        const isFormulaEscaped =
-                          cell.startsWith("'") && !origCell.startsWith("'")
-                        return (
-                          <td
-                            key={cIdx}
-                            className={`whitespace-pre-wrap px-3 py-2 align-top ${
-                              changed
-                                ? 'bg-[#34d399]/12 text-[var(--text-primary)]'
-                                : 'text-[var(--text-secondary)]'
-                            }`}
-                            title={
-                              changed ? `Original: ${origCell}` : 'Unchanged'
-                            }
-                          >
-                            {(isMultiline || isFormulaEscaped) && (
-                              <div className="mb-1 flex flex-wrap gap-1">
-                                {isMultiline && (
-                                  <span className="inline-block rounded border border-[var(--border-accent)] bg-[var(--bg-recessed)] px-1.5 py-0.5 text-xs text-[var(--text-accent)]">
-                                    multiline cell
-                                  </span>
-                                )}
-                                {isFormulaEscaped && (
-                                  <span className="inline-block rounded border border-[#f59e0b]/45 bg-[#f59e0b]/10 px-1.5 py-0.5 text-xs text-[var(--text-warn)]">
-                                    formula escaped on export
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                            <div>{cell}</div>
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <CsvTableView
+          originalRows={csvTables.originalRows}
+          sanitizedRows={csvTables.sanitizedRows}
+        />
       ) : (
         <div className="grid gap-3 lg:grid-cols-[1fr_28px_1fr] lg:items-stretch lg:gap-0">
-          {/* Left Panel: Original (Raw / Untrusted Source) */}
           <div className="instrument-panel flex min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--border-subtle)]">
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-4 py-2.5">
               <div className="flex items-center gap-2">
@@ -557,40 +366,49 @@ export function DiffViewer({
                 aria-label="Original pane mode"
                 className="instrument-recessed inline-flex rounded-lg border border-[var(--border-subtle)] p-0.5"
               >
-                <button
-                  ref={editTabRef}
-                  type="button"
-                  role="tab"
-                  aria-selected={leftTab === 'edit'}
-                  tabIndex={leftTab === 'edit' ? 0 : -1}
-                  onClick={() => setLeftTab('edit')}
-                  onKeyDown={handleLeftTabKeyDown}
-                  className={`transition-ui inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
-                    leftTab === 'edit'
-                      ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                  }`}
-                >
-                  <FileCode2 size={16} strokeWidth={1.5} aria-hidden="true" />
-                  <span>Edit</span>
-                </button>
-                <button
-                  ref={highlightsTabRef}
-                  type="button"
-                  role="tab"
-                  aria-selected={leftTab === 'highlights'}
-                  tabIndex={leftTab === 'highlights' ? 0 : -1}
-                  onClick={() => setLeftTab('highlights')}
-                  onKeyDown={handleLeftTabKeyDown}
-                  className={`transition-ui inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
-                    leftTab === 'highlights'
-                      ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                  }`}
-                >
-                  <Eye size={16} strokeWidth={1.5} aria-hidden="true" />
-                  <span>Highlights ({result.totalEntities})</span>
-                </button>
+                {(
+                  [
+                    { id: 'edit', label: 'Edit', icon: FileCode2 },
+                    {
+                      id: 'highlights',
+                      label: `Highlights (${result.totalEntities})`,
+                      icon: Eye,
+                    },
+                  ] as const
+                ).map((tab) => {
+                  const Icon = tab.icon
+                  const active = leftTab === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      ref={(el) => {
+                        leftTabRefs.current[tab.id] = el
+                      }}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      tabIndex={active ? 0 : -1}
+                      onClick={() => setLeftTab(tab.id)}
+                      onKeyDown={(e) =>
+                        handleRovingTabKeyDown(
+                          e,
+                          tab.id,
+                          LEFT_TAB_ORDER,
+                          setLeftTab,
+                          leftTabRefs
+                        )
+                      }
+                      className={`transition-ui inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
+                        active
+                          ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
+                          : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                      }`}
+                    >
+                      <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
+                      <span>{tab.label}</span>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
@@ -612,12 +430,12 @@ export function DiffViewer({
                 className="custom-scrollbar h-64 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-[var(--text-primary)] sm:h-80"
               >
                 {rawInput ? (
-                  renderHighlightedSegments(
-                    result.originalSegments,
-                    'original',
-                    activeSelectedEntity?.id ?? null,
-                    setSelectedEntity
-                  )
+                  <HighlightedSegments
+                    segments={result.originalSegments}
+                    variant="original"
+                    selectedId={activeSelectedEntity?.id ?? null}
+                    onSelectEntity={setSelectedEntity}
+                  />
                 ) : (
                   <span className="text-[var(--text-muted)]">
                     Paste text or upload a file to inspect highlighted entities
@@ -634,7 +452,6 @@ export function DiffViewer({
             </div>
           </div>
 
-          {/* Visual Transformation Connector */}
           <div
             aria-hidden="true"
             className="flex items-center justify-center lg:flex-col"
@@ -660,9 +477,7 @@ export function DiffViewer({
             <div className="h-px flex-1 bg-gradient-to-r from-[var(--border-subtle)] via-[var(--border-accent)] to-[var(--border-subtle)] opacity-70 lg:h-auto lg:w-px lg:bg-gradient-to-b" />
           </div>
 
-          {/* Right Panel: Sanitized (Protected Destination) */}
           <div className="protected-panel relative flex min-w-0 flex-col overflow-hidden rounded-xl border border-[var(--border-safe)]">
-            {/* Small inline SVG corner calibration ticks */}
             <svg
               aria-hidden="true"
               className="pointer-events-none absolute right-2 top-2 h-3 w-3 text-[var(--text-safe)] opacity-45"
@@ -672,7 +487,6 @@ export function DiffViewer({
               <path d="M2 1H11V10" stroke="currentColor" strokeWidth="1.25" />
             </svg>
 
-            {/* Brief, reduced-motion-safe transformation sweep only when non-empty result updates */}
             {rawInput && (
               <div
                 key={sweepKey}
@@ -706,70 +520,18 @@ export function DiffViewer({
                 aria-label="Sanitized output diff preview"
                 className="custom-scrollbar h-64 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[13px] leading-relaxed text-[var(--text-primary)] sm:h-80"
               >
-                {renderHighlightedSegments(
-                  result.sanitizedSegments,
-                  'sanitized',
-                  activeSelectedEntity?.id ?? null,
-                  setSelectedEntity
-                )}
+                <HighlightedSegments
+                  segments={result.sanitizedSegments}
+                  variant="sanitized"
+                  selectedId={activeSelectedEntity?.id ?? null}
+                  onSelectEntity={setSelectedEntity}
+                />
               </div>
             ) : (
-              <div
-                aria-label="Sanitized output diff preview"
-                className="flex min-h-64 flex-col items-center justify-center gap-3 p-6 text-center sm:min-h-80"
-              >
-                <div className="surface-active flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--border-safe)] bg-[var(--bg-protected-well)]">
-                  <ShieldCheck
-                    size={20}
-                    strokeWidth={1.6}
-                    className="text-[var(--text-safe)]"
-                    aria-hidden="true"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <p className="font-display text-sm font-medium text-[var(--text-primary)]">
-                    Paste text or upload a file
-                  </p>
-                  <p className="max-w-sm text-xs text-[var(--text-secondary)]">
-                    Inspect sensitive prompts, logs, or CSVs and verify
-                    sanitized output locally before sharing with an AI tool.
-                  </p>
-                </div>
-                <div className="flex flex-wrap justify-center gap-2 pt-0.5">
-                  <button
-                    type="button"
-                    onClick={() => onLoadSample(SAMPLE_DATASETS[0])}
-                    className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg bg-[var(--accent-solid)] px-3.5 text-xs font-medium text-[var(--accent-solid-text)] hover:bg-[var(--accent-solid-hover)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
-                  >
-                    <FileText size={16} strokeWidth={1.5} aria-hidden="true" />
-                    <span>Load fictional sample</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={onRequestUpload}
-                    className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] px-3 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-accent)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
-                  >
-                    <Upload size={16} strokeWidth={1.5} aria-hidden="true" />
-                    <span>Upload .txt / .csv</span>
-                  </button>
-                </div>
-                <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5 border-t border-[var(--border-subtle)] pt-3">
-                  <span className="text-[11px] text-[var(--text-muted)]">
-                    Quick presets:
-                  </span>
-                  {SAMPLE_DATASETS.slice(1).map((preset) => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => onLoadSample(preset)}
-                      title={preset.description}
-                      className="transition-ui rounded-md border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-2 py-1 text-[11px] font-medium text-[var(--text-secondary)] hover:border-[var(--border-accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
-                    >
-                      {preset.name.replace(' (fictional)', '')}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <EmptyWorkspace
+                onLoadSample={onLoadSample}
+                onRequestUpload={onRequestUpload}
+              />
             )}
 
             <div className="flex items-center justify-between border-t border-[var(--border-safe)] bg-[var(--bg-protected-header)] px-4 py-1.5 font-mono text-xs tabular-nums text-[var(--text-muted)]">

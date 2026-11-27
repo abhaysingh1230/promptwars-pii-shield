@@ -15,8 +15,6 @@ import {
   type OnDeviceAdviceResult,
 } from './engine/chromeAi'
 import { assessPrivacyRisk } from './engine/compliance'
-import { sanitizeCsvDocument } from './engine/csv'
-import { sanitizeText } from './engine/detector'
 import { buildPrivacyReceipt } from './engine/receipt'
 import {
   DEFAULT_ENABLED_CATEGORIES,
@@ -24,35 +22,19 @@ import {
   type FullMaskStyle,
   type PiiCategory,
   type RedactionMode,
-  type SanitizeResult,
 } from './engine/types'
-import type {
-  SanitizeWorkerRequest,
-  SanitizeWorkerResponse,
-} from './workers/sanitizer.worker'
+import { useSanitizerWorker } from './hooks/useSanitizerWorker'
+import { useTheme } from './hooks/useTheme'
+import { triggerClientDownload } from './utils/download'
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
-const WORKER_THRESHOLD_CHARS = 25_000
-const WORKER_TIMEOUT_MS = 800
 
-function triggerClientDownload(
-  content: string,
-  filename: string,
-  mimeType: string
-) {
-  const blob = new Blob([content], { type: mimeType })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
-  URL.revokeObjectURL(url)
-}
-
+/**
+ * Top-level PII Shield local-first privacy workstation coordinating input controls,
+ * sanitization worker execution, diff inspection, and security tools.
+ */
 export function App() {
-  const [rawInput, setRawInput] = useState<string>('')
+  const [rawInput, setRawInput] = useState('')
   const [inputFormat, setInputFormat] = useState<'txt' | 'csv'>('txt')
   const [activeFileName, setActiveFileName] = useState<string | null>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -62,9 +44,6 @@ export function App() {
     Record<PiiCategory, boolean>
   >({ ...DEFAULT_ENABLED_CATEGORIES })
   const [customRules, setCustomRules] = useState<CustomRule[]>([])
-  const [customRuleWarning, setCustomRuleWarning] = useState<string | null>(
-    null
-  )
   const [promptLogOpen, setPromptLogOpen] = useState(false)
   const [infoModalTab, setInfoModalTab] = useState<InfoModalTab>('security')
   const [onDeviceAiStatus, setOnDeviceAiStatus] = useState<
@@ -72,156 +51,23 @@ export function App() {
   >('unavailable')
   const [privacyAdvice, setPrivacyAdvice] =
     useState<OnDeviceAdviceResult | null>(null)
-  const [workerResult, setWorkerResult] = useState<SanitizeResult | null>(null)
-  const [isWorkerProcessing, setIsWorkerProcessing] = useState(false)
   const [benchmarkReport, setBenchmarkReport] =
     useState<BenchmarkReport | null>(null)
-  const [theme, setTheme] = useState<'dark' | 'light'>(() =>
-    typeof document !== 'undefined' &&
-    document.documentElement.classList.contains('light')
-      ? 'light'
-      : 'dark'
-  )
-
-  useEffect(() => {
-    const root = document.documentElement
-    root.classList.remove('dark', 'light')
-    root.classList.add(theme)
-    try {
-      localStorage.setItem('pii-shield-theme', theme)
-    } catch {
-      // Ignore storage restrictions
-    }
-  }, [theme])
 
   const promptLogTriggerRef = useRef<HTMLButtonElement>(null)
   const securityModalTriggerRef = useRef<HTMLButtonElement>(null)
   const modalOpenerRef = useRef<HTMLButtonElement | null>(null)
-  const workerRef = useRef<Worker | null>(null)
-  const workerReqIdRef = useRef(0)
 
-  const hasEnabledCustomRules = customRules.some((r) => r.enabled)
-  const useBackgroundWorker =
-    typeof Worker !== 'undefined' &&
-    (rawInput.length >= WORKER_THRESHOLD_CHARS ||
-      (hasEnabledCustomRules && rawInput.length > 0))
-
-  const syncResult = useMemo(() => {
-    if (useBackgroundWorker) return null
-    const options = {
+  const { theme, setTheme } = useTheme()
+  const { result, isProcessing, customRuleWarning, clearWarning } =
+    useSanitizerWorker({
+      rawInput,
+      inputFormat,
       mode,
-      enabledCategories,
       fullMaskStyle,
-      isCsv: inputFormat === 'csv',
-      customRules,
-    }
-    return inputFormat === 'csv'
-      ? sanitizeCsvDocument(rawInput, options)
-      : sanitizeText(rawInput, options)
-  }, [
-    useBackgroundWorker,
-    rawInput,
-    inputFormat,
-    mode,
-    enabledCategories,
-    fullMaskStyle,
-    customRules,
-  ])
-
-  useEffect(() => {
-    if (!useBackgroundWorker) return
-
-    if (!workerRef.current) {
-      workerRef.current = new Worker(
-        new URL('./workers/sanitizer.worker.ts', import.meta.url),
-        { type: 'module' }
-      )
-    }
-
-    const requestId = ++workerReqIdRef.current
-    const worker = workerRef.current
-    let settled = false
-
-    const timeoutId = window.setTimeout(() => {
-      if (settled) return
-      settled = true
-      worker.terminate()
-      workerRef.current = null
-      setIsWorkerProcessing(false)
-      setCustomRuleWarning(
-        'Custom regex scan exceeded 800 ms and was terminated safely to keep the page responsive.'
-      )
-    }, WORKER_TIMEOUT_MS)
-
-    const handleMessage = (event: MessageEvent<SanitizeWorkerResponse>) => {
-      if (event.data.requestId === workerReqIdRef.current && !settled) {
-        settled = true
-        window.clearTimeout(timeoutId)
-        setCustomRuleWarning(null)
-        setIsWorkerProcessing(false)
-        setWorkerResult(event.data.result)
-      }
-    }
-
-    worker.addEventListener('message', handleMessage)
-
-    const payload: SanitizeWorkerRequest = {
-      requestId,
-      text: rawInput,
-      options: {
-        mode,
-        enabledCategories,
-        fullMaskStyle,
-        isCsv: inputFormat === 'csv',
-        customRules,
-      },
-    }
-    queueMicrotask(() => {
-      if (!settled) setIsWorkerProcessing(true)
-    })
-    worker.postMessage(payload)
-
-    return () => {
-      settled = true
-      window.clearTimeout(timeoutId)
-      worker.removeEventListener('message', handleMessage)
-    }
-  }, [
-    useBackgroundWorker,
-    rawInput,
-    inputFormat,
-    mode,
-    enabledCategories,
-    fullMaskStyle,
-    customRules,
-  ])
-
-  useEffect(() => {
-    return () => {
-      workerRef.current?.terminate()
-      workerRef.current = null
-    }
-  }, [])
-
-  const result = useMemo(() => {
-    if (syncResult) return syncResult
-    if (workerResult) return workerResult
-    return sanitizeText('', {
-      mode,
       enabledCategories,
-      fullMaskStyle,
-      isCsv: inputFormat === 'csv',
       customRules,
     })
-  }, [
-    syncResult,
-    workerResult,
-    mode,
-    enabledCategories,
-    fullMaskStyle,
-    inputFormat,
-    customRules,
-  ])
 
   const complianceAssessment = useMemo(() => assessPrivacyRisk(result), [result])
 
@@ -231,9 +77,7 @@ export function App() {
       LanguageModel?: unknown
       ai?: { languageModel?: unknown }
     }
-    if (!g.LanguageModel && !g.ai?.languageModel) {
-      return
-    }
+    if (!g.LanguageModel && !g.ai?.languageModel) return
     detectOnDeviceAiStatus().then((status) => {
       if (!cancelled) setOnDeviceAiStatus(status)
     })
@@ -275,9 +119,7 @@ export function App() {
   ])
 
   useEffect(() => {
-    if (onDeviceAiStatus !== 'available') {
-      return
-    }
+    if (onDeviceAiStatus !== 'available') return
     let cancelled = false
     generateOnDevicePrivacySummary(
       result.countsByCategory,
@@ -296,13 +138,6 @@ export function App() {
       ? privacyAdvice
       : deterministicAdvice
 
-  function handleToggleCategory(category: PiiCategory) {
-    setEnabledCategories((prev) => ({
-      ...prev,
-      [category]: !prev[category],
-    }))
-  }
-
   function handleLoadSample(sample: SampleDataset) {
     setUploadError(null)
     setActiveFileName(`${sample.id}.${sample.format}`)
@@ -315,7 +150,6 @@ export function App() {
     const lower = file.name.toLowerCase()
     const isTxt = lower.endsWith('.txt')
     const isCsv = lower.endsWith('.csv')
-
     if (!isTxt && !isCsv) {
       setUploadError(
         `Unsupported file "${file.name}". Please upload a .txt or .csv file.`
@@ -328,7 +162,6 @@ export function App() {
       )
       return
     }
-
     const reader = new FileReader()
     reader.onload = () => {
       const content = typeof reader.result === 'string' ? reader.result : ''
@@ -342,31 +175,12 @@ export function App() {
     reader.readAsText(file)
   }
 
-  function handleRawInputChange(value: string) {
-    setUploadError(null)
-    setRawInput(value)
-  }
-
   function handleClear() {
     setUploadError(null)
-    setCustomRuleWarning(null)
+    clearWarning()
     setActiveFileName(null)
     setInputFormat('txt')
     setRawInput('')
-  }
-
-  function handleAddCustomRule(rule: CustomRule) {
-    setCustomRules((prev) => [...prev, rule])
-  }
-
-  function handleToggleCustomRule(id: string) {
-    setCustomRules((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r))
-    )
-  }
-
-  function handleDeleteCustomRule(id: string) {
-    setCustomRules((prev) => prev.filter((r) => r.id !== id))
   }
 
   const downloadFileName = activeFileName
@@ -382,11 +196,6 @@ export function App() {
         ? 'text/csv;charset=utf-8'
         : 'text/plain;charset=utf-8'
     triggerClientDownload(result.sanitizedText, downloadFileName, mime)
-  }
-
-  function handleRunBenchmark() {
-    const report = runSyntheticBenchmark()
-    setBenchmarkReport(report)
   }
 
   function handleDownloadPrivacyReceipt() {
@@ -442,15 +251,15 @@ export function App() {
           fullMaskStyle={fullMaskStyle}
           onFullMaskStyleChange={setFullMaskStyle}
           enabledCategories={enabledCategories}
-          onToggleCategory={handleToggleCategory}
+          onToggleCategory={(cat) =>
+            setEnabledCategories((prev) => ({ ...prev, [cat]: !prev[cat] }))
+          }
           countsByCategory={result.countsByCategory}
           onLoadSample={handleLoadSample}
           onUploadFile={handleUploadFile}
           onClear={handleClear}
           onDownloadSanitized={handleDownloadSanitized}
-          canDownload={
-            Boolean(result.sanitizedText) && !result.csvParseError
-          }
+          canDownload={Boolean(result.sanitizedText) && !result.csvParseError}
           downloadFileName={downloadFileName}
           activeFileName={activeFileName}
           uploadError={uploadError}
@@ -458,10 +267,13 @@ export function App() {
 
         <DiffViewer
           rawInput={rawInput}
-          onRawInputChange={handleRawInputChange}
+          onRawInputChange={(value) => {
+            setUploadError(null)
+            setRawInput(value)
+          }}
           result={result}
           mode={mode}
-          isProcessing={isWorkerProcessing && useBackgroundWorker}
+          isProcessing={isProcessing}
           downloadFileName={downloadFileName}
           onDownloadSanitized={handleDownloadSanitized}
           onLoadSample={handleLoadSample}
@@ -481,10 +293,16 @@ export function App() {
           customRules={customRules}
           customRuleWarning={customRuleWarning}
           benchmarkReport={benchmarkReport}
-          onRunBenchmark={handleRunBenchmark}
-          onAddCustomRule={handleAddCustomRule}
-          onToggleCustomRule={handleToggleCustomRule}
-          onDeleteCustomRule={handleDeleteCustomRule}
+          onRunBenchmark={() => setBenchmarkReport(runSyntheticBenchmark())}
+          onAddCustomRule={(rule) => setCustomRules((prev) => [...prev, rule])}
+          onToggleCustomRule={(id) =>
+            setCustomRules((prev) =>
+              prev.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r))
+            )
+          }
+          onDeleteCustomRule={(id) =>
+            setCustomRules((prev) => prev.filter((r) => r.id !== id))
+          }
           onDownloadPrivacyReceipt={handleDownloadPrivacyReceipt}
         />
       </main>

@@ -131,6 +131,200 @@ function validatePhoneCandidate(raw: string): {
   return { valid: true, country: parsedIn.country ?? 'IN', hasExt }
 }
 
+function detectCreditCards(
+  text: string,
+  candidates: PiiCandidate[],
+  luhnRejected: LuhnRejectedCandidate[]
+): void {
+  CARD_CANDIDATE_REGEX.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = CARD_CANDIDATE_REGEX.exec(text)) !== null) {
+    const raw = match[0]
+    const digits = raw.replace(/\D/g, '')
+    if (digits.length < 13 || digits.length > 19) continue
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) continue
+
+    const luhn = luhnDiagnostics(digits)
+    if (luhn.valid) {
+      candidates.push({
+        category: 'credit_card',
+        raw,
+        normalized: digits,
+        start: match.index,
+        end: match.index + raw.length,
+        confidence: 'high',
+        validationNote: `${detectCardBrand(digits)} · Luhn sum ${luhn.sum} (mod 10 = 0)`,
+      })
+    } else {
+      luhnRejected.push({
+        raw,
+        digits,
+        start: match.index,
+        end: match.index + raw.length,
+        reason:
+          luhn.remainder >= 0
+            ? `Failed Luhn mod-10 (sum ${luhn.sum}, rem ${luhn.remainder})`
+            : 'Failed Luhn mod-10 checksum',
+      })
+    }
+  }
+}
+
+function detectEmails(text: string, candidates: PiiCandidate[]): void {
+  EMAIL_REGEX.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = EMAIL_REGEX.exec(text)) !== null) {
+    const raw = match[0]
+    candidates.push({
+      category: 'email',
+      raw,
+      normalized: normalizeEntityKey('email', raw),
+      start: match.index,
+      end: match.index + raw.length,
+      confidence: 'high',
+      validationNote: 'Email syntax pattern (format-matched)',
+    })
+  }
+}
+
+function detectPanNumbers(text: string, candidates: PiiCandidate[]): void {
+  const seenStarts = new Set<number>()
+  for (const regex of [PAN_UPPER_REGEX, PAN_MIXED_REGEX]) {
+    regex.lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = regex.exec(text)) !== null) {
+      if (seenStarts.has(match.index)) continue
+      seenStarts.add(match.index)
+      const raw = match[0]
+      const isUppercase = raw === raw.toUpperCase()
+      candidates.push({
+        category: 'pan',
+        raw,
+        normalized: normalizeEntityKey('pan', raw),
+        start: match.index,
+        end: match.index + raw.length,
+        confidence: isUppercase ? 'high' : 'medium',
+        validationNote: `${describePanType(raw)}${isUppercase ? '' : ' · mixed-case match'}`,
+      })
+    }
+  }
+}
+
+function detectAadhaarNumbers(text: string, candidates: PiiCandidate[]): void {
+  const seenStarts = new Set<number>()
+  for (const regex of [AADHAAR_SPACED_REGEX, AADHAAR_PLAIN_REGEX]) {
+    regex.lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = regex.exec(text)) !== null) {
+      if (seenStarts.has(match.index)) continue
+      seenStarts.add(match.index)
+      const raw = match[0]
+      const digits = raw.replace(/\D/g, '')
+      const verhoeffOk = verhoeffCheck(digits)
+      candidates.push({
+        category: 'aadhaar',
+        raw,
+        normalized: digits,
+        start: match.index,
+        end: match.index + raw.length,
+        confidence: verhoeffOk ? 'high' : 'medium',
+        validationNote: verhoeffOk
+          ? 'Verhoeff checksum verified'
+          : 'Format-matched · checksum unverified',
+      })
+    }
+  }
+}
+
+function detectIpAddresses(text: string, candidates: PiiCandidate[]): void {
+  IPV6_CANDIDATE_REGEX.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = IPV6_CANDIDATE_REGEX.exec(text)) !== null) {
+    const raw = match[0]
+    if (!isValidIpv6(raw)) continue
+    candidates.push({
+      category: 'ip_address',
+      raw,
+      normalized: raw.toLowerCase(),
+      start: match.index,
+      end: match.index + raw.length,
+      confidence: 'high',
+      validationNote: raw.includes('.') ? 'IPv6 (IPv4-mapped)' : 'IPv6',
+    })
+  }
+
+  IPV4_REGEX.lastIndex = 0
+  while ((match = IPV4_REGEX.exec(text)) !== null) {
+    const raw = match[0]
+    const prevChar = match.index > 0 ? text[match.index - 1] : ''
+    if (prevChar === 'v' || prevChar === 'V') continue
+    if (!isValidIpv4(raw)) continue
+    candidates.push({
+      category: 'ip_address',
+      raw,
+      normalized: raw,
+      start: match.index,
+      end: match.index + raw.length,
+      confidence: 'high',
+      validationNote: 'IPv4',
+    })
+  }
+}
+
+function detectPhoneNumbers(text: string, candidates: PiiCandidate[]): void {
+  PHONE_CANDIDATE_REGEX.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = PHONE_CANDIDATE_REGEX.exec(text)) !== null) {
+    const raw = match[0].trim()
+    const check = validatePhoneCandidate(raw)
+    if (!check.valid) continue
+    candidates.push({
+      category: 'phone',
+      raw,
+      normalized: normalizeEntityKey('phone', raw),
+      start: match.index,
+      end: match.index + raw.length,
+      confidence: 'high',
+      validationNote: [
+        check.country ? `${check.country} numbering plan` : 'Phone',
+        check.hasExt ? 'ext' : '',
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    })
+  }
+}
+
+function detectCustomRules(
+  text: string,
+  customRules: CustomRule[],
+  candidates: PiiCandidate[]
+): void {
+  for (const rule of customRules) {
+    if (!rule.enabled) continue
+    if (validateCustomRegex(rule.pattern) !== null) continue
+    const compiled = RE2JS.compile(rule.pattern.trim())
+    const matcher = compiled.matcher(text)
+    let guard = 0
+    while (matcher.find() && guard < 10_000) {
+      guard += 1
+      const start = matcher.start()
+      const end = matcher.end()
+      if (end <= start) continue
+      const raw = text.slice(start, end)
+      candidates.push({
+        category: 'custom',
+        raw,
+        normalized: raw,
+        start,
+        end,
+        confidence: 'medium',
+        validationNote: `Custom rule (RE2): ${rule.label}`,
+      })
+    }
+  }
+}
+
 function collectPatternCandidates(
   text: string,
   enabledCategories: Record<PiiCategory, boolean>,
@@ -139,190 +333,14 @@ function collectPatternCandidates(
   const candidates: PiiCandidate[] = []
   const luhnRejected: LuhnRejectedCandidate[] = []
 
-  if (enabledCategories.credit_card) {
-    CARD_CANDIDATE_REGEX.lastIndex = 0
-    let match: RegExpExecArray | null
-    while ((match = CARD_CANDIDATE_REGEX.exec(text)) !== null) {
-      const raw = match[0]
-      const digits = raw.replace(/\D/g, '')
-      if (digits.length < 13 || digits.length > 19) continue
-      if (/^\d{4}-\d{2}-\d{2}/.test(raw)) continue
-
-      const luhn = luhnDiagnostics(digits)
-      if (luhn.valid) {
-        candidates.push({
-          category: 'credit_card',
-          raw,
-          normalized: digits,
-          start: match.index,
-          end: match.index + raw.length,
-          confidence: 'high',
-          validationNote: `${detectCardBrand(digits)} · Luhn sum ${luhn.sum} (mod 10 = 0)`,
-        })
-      } else {
-        luhnRejected.push({
-          raw,
-          digits,
-          start: match.index,
-          end: match.index + raw.length,
-          reason:
-            luhn.remainder >= 0
-              ? `Failed Luhn mod-10 (sum ${luhn.sum}, rem ${luhn.remainder})`
-              : 'Failed Luhn mod-10 checksum',
-        })
-      }
-    }
-  }
-
-  if (enabledCategories.email) {
-    EMAIL_REGEX.lastIndex = 0
-    let match: RegExpExecArray | null
-    while ((match = EMAIL_REGEX.exec(text)) !== null) {
-      const raw = match[0]
-      candidates.push({
-        category: 'email',
-        raw,
-        normalized: normalizeEntityKey('email', raw),
-        start: match.index,
-        end: match.index + raw.length,
-        confidence: 'high',
-        validationNote: 'Email syntax pattern (format-matched)',
-      })
-    }
-  }
-
-  if (enabledCategories.pan) {
-    const seenPanStarts = new Set<number>()
-    for (const regex of [PAN_UPPER_REGEX, PAN_MIXED_REGEX]) {
-      regex.lastIndex = 0
-      let match: RegExpExecArray | null
-      while ((match = regex.exec(text)) !== null) {
-        if (seenPanStarts.has(match.index)) continue
-        seenPanStarts.add(match.index)
-        const raw = match[0]
-        const isUppercase = raw === raw.toUpperCase()
-        candidates.push({
-          category: 'pan',
-          raw,
-          normalized: normalizeEntityKey('pan', raw),
-          start: match.index,
-          end: match.index + raw.length,
-          confidence: isUppercase ? 'high' : 'medium',
-          validationNote: `${describePanType(raw)}${isUppercase ? '' : ' · mixed-case match'}`,
-        })
-      }
-    }
-  }
-
-  if (enabledCategories.aadhaar) {
-    const seenAadhaarStarts = new Set<number>()
-    for (const regex of [AADHAAR_SPACED_REGEX, AADHAAR_PLAIN_REGEX]) {
-      regex.lastIndex = 0
-      let match: RegExpExecArray | null
-      while ((match = regex.exec(text)) !== null) {
-        if (seenAadhaarStarts.has(match.index)) continue
-        seenAadhaarStarts.add(match.index)
-        const raw = match[0]
-        const digits = raw.replace(/\D/g, '')
-        const verhoeffOk = verhoeffCheck(digits)
-        candidates.push({
-          category: 'aadhaar',
-          raw,
-          normalized: digits,
-          start: match.index,
-          end: match.index + raw.length,
-          confidence: verhoeffOk ? 'high' : 'medium',
-          validationNote: verhoeffOk
-            ? 'Verhoeff checksum verified'
-            : 'Format-matched · checksum unverified',
-        })
-      }
-    }
-  }
-
-  if (enabledCategories.ip_address) {
-    IPV6_CANDIDATE_REGEX.lastIndex = 0
-    let match: RegExpExecArray | null
-    while ((match = IPV6_CANDIDATE_REGEX.exec(text)) !== null) {
-      const raw = match[0]
-      if (!isValidIpv6(raw)) continue
-      candidates.push({
-        category: 'ip_address',
-        raw,
-        normalized: raw.toLowerCase(),
-        start: match.index,
-        end: match.index + raw.length,
-        confidence: 'high',
-        validationNote: raw.includes('.') ? 'IPv6 (IPv4-mapped)' : 'IPv6',
-      })
-    }
-
-    IPV4_REGEX.lastIndex = 0
-    while ((match = IPV4_REGEX.exec(text)) !== null) {
-      const raw = match[0]
-      const prevChar = match.index > 0 ? text[match.index - 1] : ''
-      if (prevChar === 'v' || prevChar === 'V') continue
-      if (!isValidIpv4(raw)) continue
-      candidates.push({
-        category: 'ip_address',
-        raw,
-        normalized: raw,
-        start: match.index,
-        end: match.index + raw.length,
-        confidence: 'high',
-        validationNote: 'IPv4',
-      })
-    }
-  }
-
-  if (enabledCategories.phone) {
-    PHONE_CANDIDATE_REGEX.lastIndex = 0
-    let match: RegExpExecArray | null
-    while ((match = PHONE_CANDIDATE_REGEX.exec(text)) !== null) {
-      const raw = match[0].trim()
-      const check = validatePhoneCandidate(raw)
-      if (!check.valid) continue
-      candidates.push({
-        category: 'phone',
-        raw,
-        normalized: normalizeEntityKey('phone', raw),
-        start: match.index,
-        end: match.index + raw.length,
-        confidence: 'high',
-        validationNote: [
-          check.country ? `${check.country} numbering plan` : 'Phone',
-          check.hasExt ? 'ext' : '',
-        ]
-          .filter(Boolean)
-          .join(' · '),
-      })
-    }
-  }
-
+  if (enabledCategories.credit_card) detectCreditCards(text, candidates, luhnRejected)
+  if (enabledCategories.email) detectEmails(text, candidates)
+  if (enabledCategories.pan) detectPanNumbers(text, candidates)
+  if (enabledCategories.aadhaar) detectAadhaarNumbers(text, candidates)
+  if (enabledCategories.ip_address) detectIpAddresses(text, candidates)
+  if (enabledCategories.phone) detectPhoneNumbers(text, candidates)
   if (enabledCategories.custom && customRules.length > 0) {
-    for (const rule of customRules) {
-      if (!rule.enabled) continue
-      if (validateCustomRegex(rule.pattern) !== null) continue
-      const compiled = RE2JS.compile(rule.pattern.trim())
-      const matcher = compiled.matcher(text)
-      let guard = 0
-      while (matcher.find() && guard < 10_000) {
-        guard += 1
-        const start = matcher.start()
-        const end = matcher.end()
-        if (end <= start) continue
-        const raw = text.slice(start, end)
-        candidates.push({
-          category: 'custom',
-          raw,
-          normalized: raw,
-          start,
-          end,
-          confidence: 'medium',
-          validationNote: `Custom rule (RE2): ${rule.label}`,
-        })
-      }
-    }
+    detectCustomRules(text, customRules, candidates)
   }
 
   return { candidates, luhnRejected }

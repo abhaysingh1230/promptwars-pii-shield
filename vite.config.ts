@@ -5,4 +5,25 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rolldownOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/libphonenumber-js')) {
+            return 'vendor-phone'
+          }
+          if (id.includes('node_modules/re2js')) {
+            return 'vendor-re2'
+          }
+          if (
+            id.includes('node_modules/react') ||
+            id.includes('node_modules/lucide-react')
+          ) {
+            return 'vendor-ui'
+          }
+          return undefined
+        },
+      },
+    },
+  },
 })

@@ -1,42 +1,30 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   Activity,
-  AlertTriangle,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   FileJson,
   FlaskConical,
   KeyRound,
-  Lock,
-  Plus,
-  RefreshCw,
-  Shield,
   ShieldAlert,
   ShieldCheck,
   Sliders,
-  Trash2,
-  Unlock,
 } from 'lucide-react'
-import { type BenchmarkReport } from '../engine/benchmark'
+import type { BenchmarkReport } from '../engine/benchmark'
 import type { OnDeviceAdviceResult } from '../engine/chromeAi'
 import type { PrivacyRiskAssessment } from '../engine/compliance'
-import {
-  MIN_VAULT_PASSPHRASE_LENGTH,
-  PBKDF2_ITERATIONS,
-  buildVaultEntriesFromEntities,
-  encryptVaultMappings,
-  rehydratePseudonyms,
-  validateVaultPassphrase,
-} from '../engine/cryptoVault'
-import { validateCustomRegex } from '../engine/detector'
 import { inspectClientNetworkEgress } from '../engine/networkAudit'
-import {
-  PII_CATEGORY_META,
-  type CustomRule,
-  type RedactionMode,
-  type SanitizeResult,
+import type {
+  CustomRule,
+  RedactionMode,
+  SanitizeResult,
 } from '../engine/types'
+import { handleRovingTabKeyDown } from '../hooks/useRovingTabs'
+import { AuditPanel } from './workbench/AuditPanel'
+import { BenchmarkPanel } from './workbench/BenchmarkPanel'
+import { CustomRulesPanel } from './workbench/CustomRulesPanel'
+import { PrivacyStatusPanel } from './workbench/PrivacyStatusPanel'
+import { VaultPanel } from './workbench/VaultPanel'
 
 interface SecurityWorkbenchProps {
   result: SanitizeResult
@@ -63,24 +51,10 @@ const TAB_ORDER: readonly WorkbenchTab[] = [
   'benchmark',
 ]
 
-const PRESET_CUSTOM_RULES: ReadonlyArray<Omit<CustomRule, 'id' | 'enabled'>> = [
-  {
-    label: 'Indian IFSC Code',
-    pattern: '\\b[A-Z]{4}0[A-Z0-9]{6}\\b',
-    tokenPrefix: 'IFSC',
-  },
-  {
-    label: 'API / Secret Key',
-    pattern: '\\b(?:sk|pk|AIza)[_-]?[A-Za-z0-9_-]{16,}\\b',
-    tokenPrefix: 'APIKEY',
-  },
-  {
-    label: 'Employee ID',
-    pattern: '\\bEMP-\\d{3,6}\\b',
-    tokenPrefix: 'EMPID',
-  },
-]
-
+/**
+ * Secondary workstation accordion hosting audit metrics, RE2 rules, encrypted vault,
+ * verifiable browser resource status, and the synthetic accuracy benchmark.
+ */
 export function SecurityWorkbench({
   result,
   assessment,
@@ -97,14 +71,7 @@ export function SecurityWorkbench({
 }: SecurityWorkbenchProps) {
   const [expanded, setExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState<WorkbenchTab>('audit')
-  const [label, setLabel] = useState('')
-  const [pattern, setPattern] = useState('')
-  const [ruleError, setRuleError] = useState<string | null>(null)
-  const [restoreInput, setRestoreInput] = useState('')
-  const [vaultPassphrase, setVaultPassphrase] = useState('')
-  const [vaultStatus, setVaultStatus] = useState<string | null>(null)
   const [auditNonce, setAuditNonce] = useState(0)
-  const [inspectedCaseId, setInspectedCaseId] = useState<string | null>(null)
 
   const tabRefs = useRef<Record<WorkbenchTab, HTMLButtonElement | null>>({
     audit: null,
@@ -119,107 +86,53 @@ export function SecurityWorkbench({
     return inspectClientNetworkEgress()
   }, [auditNonce])
 
-  function handleOpenWorkbenchTab(tab: WorkbenchTab) {
+  function handleOpenTab(tab: WorkbenchTab) {
     setExpanded(true)
     setActiveTab(tab)
-    if (tab === 'privacy') {
-      setAuditNonce((n) => n + 1)
-    } else if (tab === 'benchmark') {
-      onRunBenchmark()
-    }
+    if (tab === 'privacy') setAuditNonce((n) => n + 1)
+    else if (tab === 'benchmark') onRunBenchmark()
   }
 
-  const vaultEntries = useMemo(
-    () => buildVaultEntriesFromEntities(result.pseudonyms, result.entities),
-    [result.pseudonyms, result.entities]
-  )
+  const tabs: ReadonlyArray<{
+    id: WorkbenchTab
+    label: string
+    icon: typeof ShieldAlert
+  }> = [
+    {
+      id: 'audit',
+      label: `Audit & Luhn (${result.totalEntities})`,
+      icon: ShieldAlert,
+    },
+    { id: 'rules', label: `Custom rules (${customRules.length})`, icon: Sliders },
+    { id: 'vault', label: 'Encrypted vault', icon: KeyRound },
+    { id: 'privacy', label: 'Privacy status', icon: Activity },
+    { id: 'benchmark', label: 'Accuracy benchmark', icon: FlaskConical },
+  ]
 
-  const restoredOutput = useMemo(
-    () => rehydratePseudonyms(restoreInput, vaultEntries),
-    [restoreInput, vaultEntries]
-  )
-
-  function handleTabKeyDown(e: KeyboardEvent<HTMLButtonElement>, current: WorkbenchTab) {
-    const idx = TAB_ORDER.indexOf(current)
-    let nextIdx = idx
-    if (e.key === 'ArrowRight') nextIdx = (idx + 1) % TAB_ORDER.length
-    else if (e.key === 'ArrowLeft')
-      nextIdx = (idx - 1 + TAB_ORDER.length) % TAB_ORDER.length
-    else if (e.key === 'Home') nextIdx = 0
-    else if (e.key === 'End') nextIdx = TAB_ORDER.length - 1
-    else return
-
-    e.preventDefault()
-    const nextTab = TAB_ORDER[nextIdx]
-    setActiveTab(nextTab)
-    tabRefs.current[nextTab]?.focus()
-  }
-
-  function handleAddRule() {
-    const cleanLabel = label.trim()
-    const cleanPattern = pattern.trim()
-    if (!cleanLabel) {
-      setRuleError('Provide a short rule label (e.g. Employee ID)')
-      return
-    }
-    const regexErr = validateCustomRegex(cleanPattern)
-    if (regexErr) {
-      setRuleError(regexErr)
-      return
-    }
-    setRuleError(null)
-    onAddCustomRule({
-      id: `rule-${Date.now()}`,
-      label: cleanLabel,
-      pattern: cleanPattern,
-      tokenPrefix:
-        cleanLabel
-          .toUpperCase()
-          .replace(/[^A-Z0-9]/g, '')
-          .slice(0, 8) || 'CUSTOM',
-      enabled: true,
-    })
-    setLabel('')
-    setPattern('')
-  }
-
-  function handleAddPreset(preset: Omit<CustomRule, 'id' | 'enabled'>) {
-    if (customRules.some((r) => r.pattern === preset.pattern)) return
-    onAddCustomRule({
-      ...preset,
-      id: `preset-${preset.tokenPrefix}-${Date.now()}`,
-      enabled: true,
-    })
-  }
-
-  async function handleExportEncryptedVault() {
-    if (vaultEntries.length === 0) {
-      setVaultStatus(
-        'Switch to Pseudonymization mode with detected PII first.'
-      )
-      return
-    }
-    const passphraseError = validateVaultPassphrase(vaultPassphrase)
-    if (passphraseError) {
-      setVaultStatus(passphraseError)
-      return
-    }
-    const payload = await encryptVaultMappings(vaultEntries, vaultPassphrase)
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: 'application/json;charset=utf-8',
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'pii-pseudonym-vault.enc.json'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
-    setVaultStatus(
-      `Exported AES-GCM-256 vault (${PBKDF2_ITERATIONS.toLocaleString()} PBKDF2 iterations).`
-    )
-  }
+  const metrics = [
+    {
+      label: 'Pattern exposure estimate',
+      value: `${assessment.rawRiskScore}/100 → 0`,
+      sub: `Heuristic (${assessment.severityLabel})`,
+    },
+    {
+      label: 'PII redacted',
+      value: String(result.totalEntities),
+      sub: `${result.pseudonyms.length} unique tokens`,
+    },
+    {
+      label: 'Luhn filtered',
+      value: String(result.luhnRejected.length),
+      sub: 'Non-card 16-digit IDs kept',
+    },
+    {
+      label: 'Observed resource timing',
+      value: networkAudit.performanceSupported
+        ? `${networkAudit.externalCalls} cross-origin`
+        : 'Use DevTools',
+      sub: `${networkAudit.sameOriginAssetCalls} same-origin · ${assessment.throughputMbPerSec} MB/s`,
+    },
+  ]
 
   return (
     <section
@@ -249,7 +162,7 @@ export function SecurityWorkbench({
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => handleOpenWorkbenchTab('privacy')}
+            onClick={() => handleOpenTab('privacy')}
             className="transition-ui inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-2.5 text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--border-accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
           >
             <ShieldCheck
@@ -263,7 +176,7 @@ export function SecurityWorkbench({
 
           <button
             type="button"
-            onClick={() => handleOpenWorkbenchTab('benchmark')}
+            onClick={() => handleOpenTab('benchmark')}
             className="transition-ui inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-2.5 text-xs font-medium text-[var(--text-secondary)] hover:border-[var(--border-accent)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
           >
             <FlaskConical
@@ -297,800 +210,98 @@ export function SecurityWorkbench({
           id="advanced-security-tools-body"
           className="space-y-4 border-t border-[var(--border-subtle)] p-4"
         >
-          {/* Compact Heuristic Metrics (explicitly scoped, no false guarantees) */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3">
-              <p className="text-xs text-[var(--text-secondary)]">Pattern exposure estimate</p>
-              <p className="mt-1 font-mono text-xl font-medium tabular-nums text-[var(--text-primary)]">
-                {assessment.rawRiskScore}/100 → 0
-              </p>
-              <p className="mt-0.5 font-mono text-xs text-[var(--text-muted)]">
-                Heuristic ({assessment.severityLabel})
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3">
-              <p className="text-xs text-[var(--text-secondary)]">PII redacted</p>
-              <p className="mt-1 font-mono text-xl font-medium tabular-nums text-[var(--text-primary)]">
-                {result.totalEntities}
-              </p>
-              <p className="mt-0.5 font-mono text-xs text-[var(--text-muted)]">
-                {result.pseudonyms.length} unique tokens
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3">
-              <p className="text-xs text-[var(--text-secondary)]">Luhn filtered</p>
-              <p className="mt-1 font-mono text-xl font-medium tabular-nums text-[var(--text-primary)]">
-                {result.luhnRejected.length}
-              </p>
-              <p className="mt-0.5 font-mono text-xs text-[var(--text-muted)]">
-                Non-card 16-digit IDs kept
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3">
-              <p className="text-xs text-[var(--text-secondary)]">Observed resource timing</p>
-              <p className="mt-1 font-mono text-xl font-medium tabular-nums text-[var(--text-primary)]">
-                {networkAudit.performanceSupported
-                  ? `${networkAudit.externalCalls} cross-origin`
-                  : 'Use DevTools'}
-              </p>
-              <p className="mt-0.5 font-mono text-xs text-[var(--text-muted)]">
-                {networkAudit.sameOriginAssetCalls} same-origin ·{' '}
-                {assessment.throughputMbPerSec} MB/s
-              </p>
-            </div>
+            {metrics.map((m) => (
+              <div
+                key={m.label}
+                className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3"
+              >
+                <p className="text-xs text-[var(--text-secondary)]">{m.label}</p>
+                <p className="mt-1 font-mono text-xl font-medium tabular-nums text-[var(--text-primary)]">
+                  {m.value}
+                </p>
+                <p className="mt-0.5 font-mono text-xs text-[var(--text-muted)]">
+                  {m.sub}
+                </p>
+              </div>
+            ))}
           </div>
 
-          {/* Keyboard-Operable Tabs */}
           <div
             role="tablist"
             aria-label="Advanced security tools sections"
             className="instrument-recessed inline-flex flex-wrap rounded-lg border border-[var(--border-subtle)] p-0.5"
           >
-            <button
-              ref={(el) => {
-                tabRefs.current.audit = el
-              }}
-              id="tab-audit"
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'audit'}
-              aria-controls="panel-audit"
-              tabIndex={activeTab === 'audit' ? 0 : -1}
-              onClick={() => setActiveTab('audit')}
-              onKeyDown={(e) => handleTabKeyDown(e, 'audit')}
-              className={`transition-ui inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
-                activeTab === 'audit'
-                  ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              <ShieldAlert size={16} strokeWidth={1.5} aria-hidden="true" />
-              <span>Audit &amp; Luhn ({result.totalEntities})</span>
-            </button>
-            <button
-              ref={(el) => {
-                tabRefs.current.rules = el
-              }}
-              id="tab-rules"
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'rules'}
-              aria-controls="panel-rules"
-              tabIndex={activeTab === 'rules' ? 0 : -1}
-              onClick={() => setActiveTab('rules')}
-              onKeyDown={(e) => handleTabKeyDown(e, 'rules')}
-              className={`transition-ui inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
-                activeTab === 'rules'
-                  ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              <Sliders size={16} strokeWidth={1.5} aria-hidden="true" />
-              <span>Custom rules ({customRules.length})</span>
-            </button>
-            <button
-              ref={(el) => {
-                tabRefs.current.vault = el
-              }}
-              id="tab-vault"
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'vault'}
-              aria-controls="panel-vault"
-              tabIndex={activeTab === 'vault' ? 0 : -1}
-              onClick={() => setActiveTab('vault')}
-              onKeyDown={(e) => handleTabKeyDown(e, 'vault')}
-              className={`transition-ui inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
-                activeTab === 'vault'
-                  ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              <KeyRound size={16} strokeWidth={1.5} aria-hidden="true" />
-              <span>Encrypted vault</span>
-            </button>
-            <button
-              ref={(el) => {
-                tabRefs.current.privacy = el
-              }}
-              id="tab-privacy"
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'privacy'}
-              aria-controls="panel-privacy"
-              tabIndex={activeTab === 'privacy' ? 0 : -1}
-              onClick={() => handleOpenWorkbenchTab('privacy')}
-              onKeyDown={(e) => handleTabKeyDown(e, 'privacy')}
-              className={`transition-ui inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
-                activeTab === 'privacy'
-                  ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              <Activity size={16} strokeWidth={1.5} aria-hidden="true" />
-              <span>Privacy status</span>
-            </button>
-            <button
-              ref={(el) => {
-                tabRefs.current.benchmark = el
-              }}
-              id="tab-benchmark"
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'benchmark'}
-              aria-controls="panel-benchmark"
-              tabIndex={activeTab === 'benchmark' ? 0 : -1}
-              onClick={() => handleOpenWorkbenchTab('benchmark')}
-              onKeyDown={(e) => handleTabKeyDown(e, 'benchmark')}
-              className={`transition-ui inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
-                activeTab === 'benchmark'
-                  ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-              }`}
-            >
-              <FlaskConical size={16} strokeWidth={1.5} aria-hidden="true" />
-              <span>Accuracy benchmark</span>
-            </button>
+            {tabs.map((tab) => {
+              const Icon = tab.icon
+              const active = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  ref={(el) => {
+                    tabRefs.current[tab.id] = el
+                  }}
+                  id={`tab-${tab.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  aria-controls={`panel-${tab.id}`}
+                  tabIndex={active ? 0 : -1}
+                  onClick={() =>
+                    tab.id === 'privacy' || tab.id === 'benchmark'
+                      ? handleOpenTab(tab.id)
+                      : setActiveTab(tab.id)
+                  }
+                  onKeyDown={(e) =>
+                    handleRovingTabKeyDown(
+                      e,
+                      tab.id,
+                      TAB_ORDER,
+                      setActiveTab,
+                      tabRefs
+                    )
+                  }
+                  className={`transition-ui inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)] ${
+                    active
+                      ? 'surface-active bg-[var(--bg-active)] text-[var(--text-primary)]'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
+                  <span>{tab.label}</span>
+                </button>
+              )
+            })}
           </div>
 
           {activeTab === 'audit' && (
-            <div
-              id="panel-audit"
-              role="tabpanel"
-              aria-labelledby="tab-audit"
-              className="grid gap-4 lg:grid-cols-12"
-            >
-              <div className="min-w-0 space-y-3 lg:col-span-6">
-                <div className="flex items-start gap-2.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3 text-xs text-[var(--text-secondary)]">
-                  <CheckCircle2
-                    size={16}
-                    strokeWidth={1.5}
-                    className="mt-0.5 shrink-0 text-[var(--text-safe)]"
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <span className="font-medium text-[var(--text-primary)]">
-                      {privacyAdvice.source === 'gemini-nano'
-                        ? 'On-device Gemini Nano note: '
-                        : 'Local summary: '}
-                    </span>
-                    <span>{privacyAdvice.summary}</span>
-                  </div>
-                </div>
-
-                <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3">
-                  <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-primary)]">
-                    <AlertTriangle
-                      size={16}
-                      strokeWidth={1.5}
-                      className="text-[var(--text-secondary)]"
-                      aria-hidden="true"
-                    />
-                    <span>
-                      Luhn false-positive prevention ({result.luhnRejected.length}{' '}
-                      ignored)
-                    </span>
-                  </div>
-                  {result.luhnRejected.length === 0 ? (
-                    <p className="mt-1.5 text-xs text-[var(--text-muted)]">
-                      No non-Luhn 13–19 digit numeric strings detected in current
-                      input.
-                    </p>
-                  ) : (
-                    <ul className="mt-2 flex flex-wrap gap-2">
-                      {result.luhnRejected.map((item, idx) => (
-                        <li
-                          key={`${item.digits}-${idx}`}
-                          className="inline-flex items-center gap-1.5 rounded border border-[var(--border-strong)] bg-[var(--bg-panel)] px-2.5 py-1 font-mono text-xs text-[var(--text-primary)]"
-                          title={item.reason}
-                        >
-                          <span>{item.raw}</span>
-                          <span className="text-[var(--text-muted)]">kept safe</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-
-              <div className="min-w-0 space-y-2 lg:col-span-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-medium text-[var(--text-secondary)]">
-                    {mode === 'pseudonym'
-                      ? 'Consistent pseudonym registry'
-                      : 'Detected entity log'}
-                  </h3>
-                  <span className="text-xs text-[var(--text-muted)]">In-memory only</span>
-                </div>
-
-                {result.entities.length === 0 ? (
-                  <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-4 text-xs text-[var(--text-muted)]">
-                    No PII entities matched with active filters.
-                  </p>
-                ) : mode === 'pseudonym' ? (
-                  <div className="custom-scrollbar max-h-48 max-w-full overflow-x-auto overflow-y-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)]">
-                    <table className="w-full text-left text-xs tabular-nums">
-                      <thead className="sticky top-0 bg-[var(--bg-modal)] text-xs text-[var(--text-secondary)]">
-                        <tr>
-                          <th className="px-3 py-2 font-medium">Token</th>
-                          <th className="px-3 py-2 font-medium">Category</th>
-                          <th className="px-3 py-2 font-medium">Masked ref</th>
-                          <th className="px-3 py-2 text-right font-medium">
-                            Hits
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--border-subtle)]">
-                        {result.pseudonyms.map((m) => {
-                          const meta = PII_CATEGORY_META[m.category]
-                          return (
-                            <tr key={m.pseudonym} className="text-[var(--text-primary)]">
-                              <td className="px-3 py-2 font-mono text-[var(--text-accent)]">
-                                {m.pseudonym}
-                              </td>
-                              <td className="px-3 py-2 text-[var(--text-secondary)]">
-                                {meta.shortLabel}
-                              </td>
-                              <td className="px-3 py-2 font-mono text-[var(--text-muted)]">
-                                {m.previewMasked}
-                              </td>
-                              <td className="px-3 py-2 text-right font-mono">
-                                {m.occurrences}×
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="custom-scrollbar max-h-48 max-w-full overflow-x-auto overflow-y-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)]">
-                    <table className="w-full text-left text-xs tabular-nums">
-                      <thead className="sticky top-0 bg-[var(--bg-modal)] text-xs text-[var(--text-secondary)]">
-                        <tr>
-                          <th className="px-3 py-2 font-medium">Type</th>
-                          <th className="px-3 py-2 font-medium">Output token</th>
-                          <th className="px-3 py-2 font-medium">Validation</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--border-subtle)]">
-                        {result.entities.slice(0, 60).map((ent) => {
-                          const meta = PII_CATEGORY_META[ent.category]
-                          return (
-                            <tr key={ent.id} className="text-[var(--text-primary)]">
-                              <td className="px-3 py-2 font-medium">
-                                {meta.shortLabel}
-                              </td>
-                              <td className="px-3 py-2 font-mono text-[var(--text-accent)]">
-                                {ent.replacement}
-                              </td>
-                              <td className="px-3 py-2 text-[var(--text-muted)]">
-                                {ent.validationNote ?? 'Regex + boundary'}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
+            <AuditPanel
+              result={result}
+              mode={mode}
+              privacyAdvice={privacyAdvice}
+            />
           )}
-
           {activeTab === 'rules' && (
-            <div
-              id="panel-rules"
-              role="tabpanel"
-              aria-labelledby="tab-rules"
-              className="space-y-3"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Custom rules compile with Google&apos;s RE2 linear-time engine
-                  (re2js) inside a Web Worker with an 800 ms watchdog.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {PRESET_CUSTOM_RULES.map((preset) => (
-                    <button
-                      key={preset.tokenPrefix}
-                      type="button"
-                      onClick={() => handleAddPreset(preset)}
-                      className="transition-ui h-8 rounded-md border border-[var(--border-strong)] bg-[var(--bg-panel)] px-2.5 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-accent)]"
-                    >
-                      + {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid gap-2 sm:grid-cols-12">
-                <input
-                  type="text"
-                  aria-label="Custom rule label"
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  placeholder="Rule label"
-                  className="h-9 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-recessed)] px-3 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-solid)] focus:outline-none sm:col-span-4"
-                />
-                <input
-                  type="text"
-                  aria-label="Custom rule regex pattern"
-                  value={pattern}
-                  onChange={(e) => setPattern(e.target.value)}
-                  placeholder="RE2 pattern (linear-time O(n))"
-                  className="h-9 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-recessed)] px-3 font-mono text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-solid)] focus:outline-none sm:col-span-6"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddRule}
-                  className="transition-ui inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[var(--cta-solid)] px-3 text-xs font-medium text-[var(--cta-solid-text)] hover:bg-[var(--cta-solid-hover)] sm:col-span-2"
-                >
-                  <Plus size={16} strokeWidth={1.5} aria-hidden="true" />
-                  <span>Add</span>
-                </button>
-              </div>
-
-              {(ruleError || customRuleWarning) && (
-                <p role="alert" className="text-xs text-[var(--text-danger)]">
-                  {ruleError ?? customRuleWarning}
-                </p>
-              )}
-
-              {customRules.length === 0 ? (
-                <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3 text-xs text-[var(--text-muted)]">
-                  No custom rules active yet. Choose a preset above or add a
-                  safe regex pattern.
-                </p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {customRules.map((rule) => (
-                    <li
-                      key={rule.id}
-                      className="flex h-10 items-center justify-between gap-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] px-3 text-xs"
-                    >
-                      <label className="flex min-w-0 cursor-pointer items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={rule.enabled}
-                          onChange={() => onToggleCustomRule(rule.id)}
-                          className="h-3.5 w-3.5 rounded border-[var(--border-strong)] bg-[var(--bg-modal)] accent-[var(--accent-solid)]"
-                        />
-                        <span className="font-medium text-[var(--text-primary)]">
-                          {rule.label}
-                        </span>
-                        <code className="truncate font-mono text-xs text-[var(--text-muted)]">
-                          /{rule.pattern}/g
-                        </code>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => onDeleteCustomRule(rule.id)}
-                        aria-label={`Remove custom rule ${rule.label}`}
-                        className="text-[var(--text-muted)] hover:text-[var(--text-danger)]"
-                      >
-                        <Trash2 size={16} strokeWidth={1.5} aria-hidden="true" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <CustomRulesPanel
+              customRules={customRules}
+              customRuleWarning={customRuleWarning}
+              onAddCustomRule={onAddCustomRule}
+              onToggleCustomRule={onToggleCustomRule}
+              onDeleteCustomRule={onDeleteCustomRule}
+            />
           )}
-
-          {activeTab === 'vault' && (
-            <div
-              id="panel-vault"
-              role="tabpanel"
-              aria-labelledby="tab-vault"
-              className="space-y-3"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs text-[var(--text-secondary)]">
-                  {mode === 'pseudonym'
-                    ? 'Restore pseudonymized tokens locally or export an AES-GCM-256 encrypted mapping file.'
-                    : 'Switch Redaction mode above to Pseudonymization to enable local restoration and AES-GCM export.'}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setRestoreInput(result.sanitizedText)}
-                  disabled={mode !== 'pseudonym' || !result.sanitizedText}
-                  className="transition-ui inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--border-strong)] bg-[var(--bg-panel)] px-3 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-accent)] disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Unlock size={16} strokeWidth={1.5} aria-hidden="true" />
-                  <span>Load pseudonymized output</span>
-                </button>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <textarea
-                  aria-label="Pseudonymized text to restore locally"
-                  value={restoreInput}
-                  onChange={(e) => setRestoreInput(e.target.value)}
-                  placeholder="Paste text containing EMAIL_01 or CARD_01"
-                  rows={3}
-                  className="custom-scrollbar w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3 font-mono text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-solid)] focus:outline-none"
-                />
-                <div
-                  aria-label="Locally restored output"
-                  className="custom-scrollbar h-24 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3 font-mono text-xs text-[var(--text-primary)]"
-                >
-                  {restoreInput ? (
-                    restoredOutput.restoredText
-                  ) : (
-                    <span className="text-[var(--text-muted)]">
-                      Restored text appears here (
-                      {restoredOutput.replacementsApplied} tokens restored)
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-subtle)] pt-3">
-                <Lock
-                  size={16}
-                  strokeWidth={1.5}
-                  className="text-[var(--text-secondary)]"
-                  aria-hidden="true"
-                />
-                <input
-                  type="password"
-                  aria-label="Vault encryption passphrase"
-                  value={vaultPassphrase}
-                  onChange={(e) => setVaultPassphrase(e.target.value)}
-                  placeholder={`Passphrase (min ${MIN_VAULT_PASSPHRASE_LENGTH} chars, mixed)`}
-                  className="h-9 min-w-56 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-recessed)] px-3 text-xs text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-solid)] focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleExportEncryptedVault}
-                  className="transition-ui inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] px-3 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-accent)]"
-                >
-                  <Shield size={16} strokeWidth={1.5} aria-hidden="true" />
-                  <span>Export AES-GCM key</span>
-                </button>
-                <span className="font-mono text-xs text-[var(--text-muted)]">
-                  PBKDF2-SHA256 ({PBKDF2_ITERATIONS.toLocaleString()} iter) +
-                  AES-GCM-256
-                </span>
-                {vaultStatus && (
-                  <span role="status" className="text-xs text-[var(--text-accent)]">
-                    {vaultStatus}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-
+          {activeTab === 'vault' && <VaultPanel result={result} mode={mode} />}
           {activeTab === 'privacy' && (
-            <div
-              id="panel-privacy"
-              role="tabpanel"
-              aria-labelledby="tab-privacy"
-              className="grid gap-4 lg:grid-cols-12"
-            >
-              <div className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3.5 text-xs lg:col-span-6">
-                <div className="flex items-center gap-2 font-display font-medium text-[var(--text-primary)]">
-                  <ShieldCheck
-                    size={16}
-                    strokeWidth={1.5}
-                    className="text-[var(--text-safe)]"
-                    aria-hidden="true"
-                  />
-                  <span>What is processed locally (no user text is transmitted)</span>
-                </div>
-                <ul className="list-disc space-y-1.5 pl-4 text-[var(--text-secondary)]">
-                  <li>
-                    <span className="text-[var(--text-primary)]">No user text is transmitted:</span>{' '}
-                    Detection, Luhn/Verhoeff checksums, bundled{' '}
-                    <span className="font-mono">libphonenumber-js/max</span>, and
-                    RE2 Web Worker matching run in local browser memory with zero
-                    remote API calls.
-                  </li>
-                  <li>
-                    <span className="text-[var(--text-primary)]">Page asset requests vs. user data:</span>{' '}
-                    Loading the page initially requests same-origin app files
-                    (HTML, JS, CSS, local Space Grotesk fonts); subsequent
-                    sanitization sends no payloads over the network.
-                  </li>
-                  <li>
-                    <span className="text-[var(--text-primary)]">CSV, Vault &amp; Receipts:</span>{' '}
-                    Strict CSV parsing, formula escaping, PBKDF2 + AES-GCM vault
-                    export, and metadata-only Privacy Receipts stay client-side.
-                  </li>
-                  <li>
-                    <span className="text-[var(--text-primary)]">Storage behavior:</span>{' '}
-                    Raw text and PII are never written to cookies, IndexedDB,
-                    or <span className="font-mono">localStorage</span> (only UI theme
-                    preference <span className="font-mono">pii-shield-theme</span> is saved).
-                  </li>
-                </ul>
-              </div>
-
-              <div className="space-y-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3.5 text-xs lg:col-span-6">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 font-display font-medium text-[var(--text-primary)]">
-                    <Activity
-                      size={16}
-                      strokeWidth={1.5}
-                      className="text-[var(--text-accent)]"
-                      aria-hidden="true"
-                    />
-                    <span>Browser-observable page resource check</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setAuditNonce((n) => n + 1)}
-                    className="transition-ui inline-flex h-7 items-center gap-1.5 rounded-md border border-[var(--border-strong)] bg-[var(--bg-panel)] px-2.5 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-accent)]"
-                  >
-                    <RefreshCw size={13} strokeWidth={1.5} aria-hidden="true" />
-                    <span>Re-check</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 font-mono tabular-nums">
-                  <div className="rounded border border-[var(--border-subtle)] bg-[var(--bg-panel)] p-2.5">
-                    <div className="text-[11px] text-[var(--text-muted)]">
-                      Same-origin page assets
-                    </div>
-                    <div className="mt-0.5 text-base font-medium text-[var(--text-primary)]">
-                      {networkAudit.sameOriginAssetCalls}
-                    </div>
-                  </div>
-                  <div className="rounded border border-[var(--border-subtle)] bg-[var(--bg-panel)] p-2.5">
-                    <div className="text-[11px] text-[var(--text-muted)]">
-                      Cross-origin entries observed
-                    </div>
-                    <div
-                      className={`mt-0.5 text-base font-medium ${
-                        networkAudit.externalCalls === 0
-                          ? 'text-[var(--text-safe)]'
-                          : 'text-[var(--text-danger)]'
-                      }`}
-                    >
-                      {networkAudit.externalCalls}
-                    </div>
-                  </div>
-                </div>
-
-                <p className="text-[var(--text-secondary)]">
-                  {networkAudit.auditNote}
-                </p>
-
-                {networkAudit.observedOrigins.length > 0 && (
-                  <p className="font-mono text-[11px] text-[var(--text-muted)]">
-                    Observed origin(s): {networkAudit.observedOrigins.join(', ')}
-                  </p>
-                )}
-
-                <p className="border-t border-[var(--border-subtle)] pt-2 text-[11px] text-[var(--text-muted)]">
-                  What this can verify: only requests visible to this tab&apos;s{' '}
-                  <span className="font-mono">performance.getEntriesByType(&apos;resource&apos;)</span>{' '}
-                  API. It distinguishes page asset loading from user data; verify
-                  all live requests independently in DevTools → Network.
-                </p>
-              </div>
-            </div>
+            <PrivacyStatusPanel
+              networkAudit={networkAudit}
+              onRecheck={() => setAuditNonce((n) => n + 1)}
+            />
           )}
-
           {activeTab === 'benchmark' && (
-            <div
-              id="panel-benchmark"
-              role="tabpanel"
-              aria-labelledby="tab-benchmark"
-              className="space-y-3"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h3 className="font-display text-xs font-medium text-[var(--text-primary)]">
-                    Privacy benchmark v2026.1 (100% synthetic test corpus)
-                  </h3>
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    Synthetic regression checks only — results verify known
-                    edge cases and do not prove perfect detection on arbitrary
-                    real-world text. Click any row to inspect expected vs. actual output.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={onRunBenchmark}
-                  className="transition-ui inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--accent-solid)] px-3 text-xs font-medium text-[var(--accent-solid-text)] hover:bg-[var(--accent-solid-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
-                >
-                  <FlaskConical size={15} strokeWidth={1.5} aria-hidden="true" />
-                  <span>
-                    {benchmarkReport
-                      ? 'Re-run privacy benchmark'
-                      : 'Run privacy benchmark'}
-                  </span>
-                </button>
-              </div>
-
-              {benchmarkReport ? (
-                <>
-                  <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3">
-                      <p className="text-xs text-[var(--text-secondary)]">
-                        Synthetic cases passed
-                      </p>
-                      <p className="mt-1 font-mono text-lg font-medium tabular-nums text-[var(--text-safe)]">
-                        {benchmarkReport.passedCases}/{benchmarkReport.totalCases}{' '}
-                        <span className="text-xs text-[var(--text-muted)]">
-                          ({benchmarkReport.failedCases} failed)
-                        </span>
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3">
-                      <p className="text-xs text-[var(--text-secondary)]">
-                        False positives
-                      </p>
-                      <p className="mt-1 font-mono text-lg font-medium tabular-nums text-[var(--text-primary)]">
-                        {benchmarkReport.falsePositives}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3">
-                      <p className="text-xs text-[var(--text-secondary)]">
-                        False negatives
-                      </p>
-                      <p className="mt-1 font-mono text-lg font-medium tabular-nums text-[var(--text-primary)]">
-                        {benchmarkReport.falseNegatives}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3">
-                      <p className="text-xs text-[var(--text-secondary)]">
-                        Total runtime
-                      </p>
-                      <p className="mt-1 font-mono text-lg font-medium tabular-nums text-[var(--text-accent)]">
-                        {benchmarkReport.durationMs} ms
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="custom-scrollbar max-h-64 overflow-auto rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)]">
-                    <table className="w-full text-left text-xs tabular-nums">
-                      <thead className="sticky top-0 bg-[var(--bg-modal)] text-xs text-[var(--text-secondary)]">
-                        <tr>
-                          <th className="px-3 py-2 font-medium">Suite</th>
-                          <th className="px-3 py-2 font-medium">Synthetic check</th>
-                          <th className="px-3 py-2 font-medium">Result</th>
-                          <th className="px-3 py-2 font-medium">FP / FN</th>
-                          <th className="px-3 py-2 text-right font-medium">Time</th>
-                          <th className="px-3 py-2 text-right font-medium">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--border-subtle)]">
-                        {benchmarkReport.cases.map((c) => {
-                          const isInspected =
-                            inspectedCaseId === c.id ||
-                            (!inspectedCaseId && !c.passed)
-                          return (
-                            <tr
-                              key={c.id}
-                              onClick={() =>
-                                setInspectedCaseId(isInspected ? null : c.id)
-                              }
-                              className={`cursor-pointer transition-ui text-[var(--text-primary)] hover:bg-[var(--bg-table-hover)] ${
-                                isInspected ? 'bg-[var(--bg-active)]/50' : ''
-                              }`}
-                            >
-                              <td className="px-3 py-2 font-medium">
-                                <button
-                                  type="button"
-                                  aria-expanded={isInspected}
-                                  className="text-left focus-visible:outline-none focus-visible:underline"
-                                >
-                                  {c.categoryGroup}
-                                </button>
-                              </td>
-                              <td className="px-3 py-2 text-[var(--text-secondary)]">
-                                {c.scenario}
-                              </td>
-                              <td className="px-3 py-2 text-[var(--text-secondary)]">
-                                {c.detail}
-                              </td>
-                              <td className="px-3 py-2 font-mono text-[var(--text-muted)]">
-                                {c.falsePositives} / {c.falseNegatives}
-                              </td>
-                              <td className="px-3 py-2 text-right font-mono text-[var(--text-muted)]">
-                                {c.durationMs} ms
-                              </td>
-                              <td className="px-3 py-2 text-right font-mono">
-                                <span
-                                  className={`rounded border px-1.5 py-0.5 text-[11px] ${
-                                    c.passed
-                                      ? 'border-[var(--border-safe)] bg-[var(--bg-protected-well)] text-[var(--text-safe)]'
-                                      : 'border-[#e5484d]/50 bg-[#e5484d]/10 text-[var(--text-danger)]'
-                                  }`}
-                                >
-                                  {c.passed ? 'PASS' : 'FAIL'}
-                                </span>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {(() => {
-                    const activeCase =
-                      benchmarkReport.cases.find(
-                        (c) => c.id === inspectedCaseId
-                      ) ?? benchmarkReport.cases.find((c) => !c.passed)
-                    if (!activeCase) return null
-                    return (
-                      <div
-                        role="region"
-                        aria-label={`Benchmark case details for ${activeCase.categoryGroup}`}
-                        className="rounded-lg border border-[var(--border-accent)] bg-[var(--bg-recessed)] p-3 text-xs"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-display font-medium text-[var(--text-primary)]">
-                            Case inspection: {activeCase.categoryGroup} ({activeCase.passed ? 'PASS' : 'FAIL'})
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setInspectedCaseId(null)}
-                            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                          >
-                            Close
-                          </button>
-                        </div>
-                        <dl className="mt-2 grid gap-1.5 text-[var(--text-secondary)]">
-                          <div>
-                            <dt className="inline font-medium text-[var(--text-primary)]">
-                              Synthetic input:{' '}
-                            </dt>
-                            <dd className="inline">{activeCase.inputSummary}</dd>
-                          </div>
-                          <div>
-                            <dt className="inline font-medium text-[var(--text-primary)]">
-                              Expected:{' '}
-                            </dt>
-                            <dd className="inline">{activeCase.expectedBehavior}</dd>
-                          </div>
-                          <div>
-                            <dt className="inline font-medium text-[var(--text-primary)]">
-                              Actual:{' '}
-                            </dt>
-                            <dd className="inline font-mono text-[var(--text-accent)]">
-                              {activeCase.actualOutput}
-                            </dd>
-                          </div>
-                        </dl>
-                      </div>
-                    )
-                  })()}
-                </>
-              ) : (
-                <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3 text-xs text-[var(--text-muted)]">
-                  Click &ldquo;Run privacy benchmark&rdquo; to execute all 10
-                  deterministic synthetic accuracy checks locally in this tab.
-                </p>
-              )}
-            </div>
+            <BenchmarkPanel
+              benchmarkReport={benchmarkReport}
+              onRunBenchmark={onRunBenchmark}
+            />
           )}
         </div>
       )}
