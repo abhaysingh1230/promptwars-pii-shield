@@ -34,10 +34,12 @@
 ## Google Technologies Used (Privacy-Preserving)
 
 - **Google Antigravity:** AI-assisted engineering and iterative prompt workflow (see [`PROMPT_LOG.md`](./PROMPT_LOG.md))
-- **Google Cloud Run Ready:** Multi-stage `Dockerfile` + `nginx.conf.template` listening on `$PORT` (`8080`) with strict security headers
+- **Google Cloud Run & Cloud Build:** Multi-stage `Dockerfile`, `nginx.conf.template` (port `8080`, CSP `connect-src 'none'`), and `cloudbuild.yaml` CI/CD deployment pipeline
 - **Firebase Hosting Ready:** Configured in `firebase.json`
 - **Chrome Built-in AI (Gemini Nano):** Optional on-device `LanguageModel` advisory in `src/engine/chromeAi.ts` that runs locally over aggregate redacted counts only (falls back seamlessly to deterministic local rules)
 - **Google Fonts:** `Inter` & `JetBrains Mono`
+
+See [`SECURITY.md`](./SECURITY.md) for the complete zero-server threat model, ReDoS bounds, and Web Crypto AES-GCM-256 specification.
 
 ---
 

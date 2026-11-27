@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import App from './App'
 
@@ -83,5 +83,51 @@ describe('PII Shield UI', () => {
       screen.getByRole('button', { name: /Close prompt log dialog/i })
     )
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('closes Prompt Log dialog via Escape key for keyboard accessibility', () => {
+    render(<App />)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Prompt Log & Security/i })
+    )
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('rejects unsupported or oversized files with accessible alert and supports Clear & category filters', () => {
+    const { container } = render(<App />)
+    const fileInput = container.querySelector(
+      '#pii-file-upload'
+    ) as HTMLInputElement
+    expect(fileInput).toBeInTheDocument()
+
+    const badFile = new File(['hello'], 'payload.exe', {
+      type: 'application/octet-stream',
+    })
+    fireEvent.change(fileInput, { target: { files: [badFile] } })
+    expect(screen.getByRole('alert')).toHaveTextContent(/Unsupported file/i)
+
+    const hugeFile = new File(['x'], 'huge.txt', { type: 'text/plain' })
+    Object.defineProperty(hugeFile, 'size', { value: 6 * 1024 * 1024 })
+    fireEvent.change(fileInput, { target: { files: [hugeFile] } })
+    expect(screen.getByRole('alert')).toHaveTextContent(/exceeds 5 MB/i)
+
+    const controls = screen.getByRole('region', {
+      name: /Sanitization Controls and Sample Loader/i,
+    })
+    fireEvent.click(
+      within(controls).getByRole('button', { name: /Email Address/i })
+    )
+    expect(
+      screen.getByLabelText('Sanitized output diff preview').textContent
+    ).toContain('rohan.sharma@fintechcorp.in')
+
+    fireEvent.click(screen.getByRole('button', { name: /Clear input text/i }))
+    expect(
+      (screen.getByLabelText('Original Input') as HTMLTextAreaElement).value
+    ).toBe('')
   })
 })

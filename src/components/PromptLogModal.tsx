@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { X, ShieldCheck } from 'lucide-react'
 
 interface PromptLogModalProps {
@@ -11,14 +12,14 @@ const PROMPT_LOG_STEPS = [
     prompt:
       'Design a 100% client-side PII sanitization engine that executes purely in the browser without external API transmission, supporting text paste and .txt/.csv uploads.',
     outcome:
-      'Pure TypeScript deterministic pipeline (src/engine/) with zero fetch/XHR calls during sanitization and pure React JSX diff rendering (no dangerouslySetInnerHTML).',
+      'Pure TypeScript deterministic pipeline (src/engine/) with Web Worker offloading (src/workers/), zero fetch/XHR calls during sanitization, and pure React JSX diff rendering.',
   },
   {
     phase: '2. Multi-Entity Detection & Luhn Validation',
     prompt:
       'Detect Emails, Phones, IPv4/IPv6, Indian PAN, Aadhaar, and Credit Cards with strict Luhn mod-10 validation and overlap resolution so non-Luhn 16-digit IDs are never misclassified.',
     outcome:
-      'Implemented Luhn + Verhoeff + IPv4/IPv6 validators, boundary-safe Aadhaar matchers, priority-ordered overlap resolution, and explicit Luhn-rejected telemetry.',
+      'Implemented Luhn + Verhoeff + IPv4/IPv6 validators, boundary-safe Aadhaar matchers, priority-ordered overlap resolution, and mathematical Luhn checksum telemetry.',
   },
   {
     phase: '3. Three Redaction Modes & CSV Consistency',
@@ -28,11 +29,11 @@ const PROMPT_LOG_STEPS = [
       'Built PseudonymRegistry with canonical normalization (case-insensitive emails, +91 phone normalization) shared across RFC-4180 CSV cells.',
   },
   {
-    phase: '4. Auditability, Testing & Cloud Run Packaging',
+    phase: '4. Auditability, Testing & Google Cloud Run',
     prompt:
       'Add side-by-side diff highlighting, 1-click sample datasets, downloadable output, Vitest suite, WCAG accessibility, and Google Cloud Run / Firebase hosting configs.',
     outcome:
-      'Shipped accessible React UI, Vitest unit/UI tests, optional on-device Chrome Gemini Nano advisory, and Nginx Dockerfile on port 8080 for Cloud Run.',
+      'Shipped accessible React UI, Vitest unit/UI tests, optional on-device Chrome Gemini Nano advisory, Cloud Build (cloudbuild.yaml), and Nginx Dockerfile on port 8080.',
   },
   {
     phase: '5. Enterprise Privacy Gateway Upgrades',
@@ -44,6 +45,21 @@ const PROMPT_LOG_STEPS = [
 ] as const
 
 export function PromptLogModal({ open, onClose }: PromptLogModalProps) {
+  const closeBtnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    closeBtnRef.current?.focus()
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [open, onClose])
+
   if (!open) return null
 
   return (
@@ -51,6 +67,9 @@ export function PromptLogModal({ open, onClose }: PromptLogModalProps) {
       role="dialog"
       aria-modal="true"
       aria-labelledby="prompt-log-title"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
     >
       <div className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-2xl">
@@ -62,12 +81,13 @@ export function PromptLogModal({ open, onClose }: PromptLogModalProps) {
                 Prompt Engineering Log &amp; Security Architecture
               </h2>
               <p className="text-xs text-slate-400">
-                Full log also documented in PROMPT_LOG.md in the repository root
+                Full log in PROMPT_LOG.md • Security policy in SECURITY.md (Press Esc to close)
               </p>
             </div>
           </div>
 
           <button
+            ref={closeBtnRef}
             type="button"
             onClick={onClose}
             aria-label="Close prompt log dialog"

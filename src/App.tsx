@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AuditPanel } from './components/AuditPanel'
 import { ComplianceBanner } from './components/ComplianceBanner'
 import { ControlsBar } from './components/ControlsBar'
@@ -21,9 +21,15 @@ import {
   type FullMaskStyle,
   type PiiCategory,
   type RedactionMode,
+  type SanitizeResult,
 } from './engine/types'
+import type {
+  SanitizeWorkerRequest,
+  SanitizeWorkerResponse,
+} from './workers/sanitizer.worker'
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+const WORKER_THRESHOLD_CHARS = 25_000
 
 function triggerClientDownload(
   content: string,
@@ -58,8 +64,15 @@ export function App() {
   >('unavailable')
   const [privacyAdvice, setPrivacyAdvice] =
     useState<OnDeviceAdviceResult | null>(null)
+  const [workerResult, setWorkerResult] = useState<SanitizeResult | null>(null)
+  const workerRef = useRef<Worker | null>(null)
+  const workerReqIdRef = useRef(0)
 
-  const result = useMemo(() => {
+  const useBackgroundWorker =
+    typeof Worker !== 'undefined' && rawInput.length >= WORKER_THRESHOLD_CHARS
+
+  const syncResult = useMemo(() => {
+    if (useBackgroundWorker) return null
     const options = {
       mode,
       enabledCategories,
@@ -70,7 +83,88 @@ export function App() {
     return inputFormat === 'csv'
       ? sanitizeCsvDocument(rawInput, options)
       : sanitizeText(rawInput, options)
-  }, [rawInput, inputFormat, mode, enabledCategories, fullMaskStyle, customRules])
+  }, [
+    useBackgroundWorker,
+    rawInput,
+    inputFormat,
+    mode,
+    enabledCategories,
+    fullMaskStyle,
+    customRules,
+  ])
+
+  useEffect(() => {
+    if (!useBackgroundWorker) return
+
+    if (!workerRef.current) {
+      workerRef.current = new Worker(
+        new URL('./workers/sanitizer.worker.ts', import.meta.url),
+        { type: 'module' }
+      )
+    }
+
+    const requestId = ++workerReqIdRef.current
+    const worker = workerRef.current
+
+    const handleMessage = (event: MessageEvent<SanitizeWorkerResponse>) => {
+      if (event.data.requestId === workerReqIdRef.current) {
+        setWorkerResult(event.data.result)
+      }
+    }
+    worker.addEventListener('message', handleMessage)
+
+    const payload: SanitizeWorkerRequest = {
+      requestId,
+      text: rawInput,
+      options: {
+        mode,
+        enabledCategories,
+        fullMaskStyle,
+        isCsv: inputFormat === 'csv',
+        customRules,
+      },
+    }
+    worker.postMessage(payload)
+
+    return () => {
+      worker.removeEventListener('message', handleMessage)
+    }
+  }, [
+    useBackgroundWorker,
+    rawInput,
+    inputFormat,
+    mode,
+    enabledCategories,
+    fullMaskStyle,
+    customRules,
+  ])
+
+  useEffect(() => {
+    return () => {
+      workerRef.current?.terminate()
+      workerRef.current = null
+    }
+  }, [])
+
+  const result = useMemo(() => {
+    if (syncResult) return syncResult
+    if (workerResult) return workerResult
+    return sanitizeText('', {
+      mode,
+      enabledCategories,
+      fullMaskStyle,
+      isCsv: inputFormat === 'csv',
+      customRules,
+    })
+  }, [
+    syncResult,
+    workerResult,
+    mode,
+    enabledCategories,
+    fullMaskStyle,
+    inputFormat,
+    customRules,
+  ])
 
   const complianceAssessment = useMemo(() => assessPrivacyRisk(result), [result])
 

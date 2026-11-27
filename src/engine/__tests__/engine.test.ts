@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { SAMPLE_DATASETS } from '../../data/samples'
+import {
+  detectOnDeviceAiStatus,
+  generateOnDevicePrivacySummary,
+} from '../chromeAi'
 import { assessPrivacyRisk } from '../compliance'
 import {
   decryptVaultMappings,
@@ -8,6 +12,7 @@ import {
 } from '../cryptoVault'
 import { sanitizeCsvDocument, parseCsv, serializeCsv } from '../csv'
 import { sanitizeText, validateCustomRegex } from '../detector'
+import { inspectClientNetworkEgress } from '../networkAudit'
 import { DEFAULT_ENABLED_CATEGORIES, type SanitizeOptions } from '../types'
 import {
   describePanType,
@@ -245,5 +250,81 @@ describe('compliance scoring, custom rules, and crypto vault', () => {
     expect(decrypted).toEqual([
       { pseudonym: 'EMAIL_01', originalValue: 'alice@corp.in' },
     ])
+  })
+
+  it('handles empty text, unicode text, IPv6, and large 100 KB logs efficiently', () => {
+    const empty = sanitizeText('', baseOptions)
+    expect(empty.totalEntities).toBe(0)
+    expect(empty.sanitizedText).toBe('')
+
+    const unicode = sanitizeText(
+      'नाम: रोहन | Email: rohan@bharat.in | IPv6: 2001:db8:85a3::8a2e:370:7334',
+      { ...baseOptions, mode: 'partial' }
+    )
+    expect(unicode.countsByCategory.email).toBe(1)
+    expect(unicode.countsByCategory.ip_address).toBe(1)
+    expect(unicode.sanitizedText).toContain('r***@bharat.in')
+    expect(unicode.sanitizedText).toContain('2001:db8:****:****')
+
+    const largeInput = Array.from(
+      { length: 250 },
+      () => SAMPLE_DATASETS[0].content
+    ).join('\n')
+    expect(largeInput.length).toBeGreaterThan(100_000)
+    const largeRes = sanitizeText(largeInput, baseOptions)
+    expect(largeRes.totalEntities).toBeGreaterThan(1000)
+    expect(largeRes.processingMs).toBeLessThan(500)
+  })
+
+  it('verifies zero external network egress and on-device AI advisory', async () => {
+    const net = inspectClientNetworkEgress()
+    expect(net.verifiedZeroDataEgress).toBe(true)
+    expect(net.externalApiCalls).toBe(0)
+
+    expect(await detectOnDeviceAiStatus()).toBe('unavailable')
+    const fallback = await generateOnDevicePrivacySummary(
+      {
+        credit_card: 1,
+        pan: 1,
+        aadhaar: 0,
+        email: 2,
+        phone: 0,
+        ip_address: 0,
+        custom: 0,
+      },
+      1,
+      'partial'
+    )
+    expect(fallback.source).toBe('local-engine')
+    expect(fallback.summary).toContain('PCI-DSS / DPDP Act')
+
+    const g = globalThis as unknown as { LanguageModel?: unknown }
+    g.LanguageModel = {
+      availability: async () => 'available',
+      create: async () => ({
+        prompt: async () => 'Local Gemini Nano: PCI-DSS scope mitigated.',
+        destroy: () => {},
+      }),
+    }
+    try {
+      expect(await detectOnDeviceAiStatus()).toBe('available')
+      const nano = await generateOnDevicePrivacySummary(
+        {
+          credit_card: 1,
+          pan: 0,
+          aadhaar: 0,
+          email: 0,
+          phone: 0,
+          ip_address: 0,
+          custom: 0,
+        },
+        0,
+        'full'
+      )
+      expect(nano.source).toBe('gemini-nano')
+      expect(nano.summary).toContain('Local Gemini Nano')
+    } finally {
+      delete g.LanguageModel
+    }
   })
 })

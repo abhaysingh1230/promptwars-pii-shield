@@ -1,5 +1,14 @@
-import { Activity, AlertTriangle, CheckCircle2, FileJson, KeyRound, ShieldAlert } from 'lucide-react'
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  FileJson,
+  KeyRound,
+  ShieldAlert,
+  ShieldCheck,
+} from 'lucide-react'
 import type { OnDeviceAdviceResult } from '../engine/chromeAi'
+import { inspectClientNetworkEgress } from '../engine/networkAudit'
 import {
   PII_CATEGORY_META,
   type RedactionMode,
@@ -19,6 +28,7 @@ export function AuditPanel({
   privacyAdvice,
   onDownloadAuditJson,
 }: AuditPanelProps) {
+  const networkAudit = inspectClientNetworkEgress()
   return (
     <section
       aria-labelledby="audit-heading"
@@ -27,11 +37,17 @@ export function AuditPanel({
       {/* Left: Metrics & Luhn False Positive Proof */}
       <div className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 sm:p-5 lg:col-span-7">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Activity className="h-4 w-4 text-cyan-400" aria-hidden="true" />
             <h2 id="audit-heading" className="text-sm font-semibold text-white">
               Detection Audit &amp; Validation Telemetry
             </h2>
+            <span className="inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 font-mono text-[11px] text-emerald-300">
+              <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+              <span>
+                {networkAudit.externalApiCalls} external API calls
+              </span>
+            </span>
           </div>
 
           <button
