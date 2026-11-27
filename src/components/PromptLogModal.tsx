@@ -211,13 +211,19 @@ export function PromptLogModal({
           >
             <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3">
               <h3 className="font-medium text-[var(--text-primary)]">
-                Privacy behavior and CSP
+                Local processing vs. page network requests
               </h3>
               <p className="mt-1">
-                All text scanning, CSV parsing, checksum checks, and downloads run
-                locally in browser memory. Static bundle assets load from this
-                origin only; no third-party fonts, analytics, or remote APIs are
-                called at runtime (`connect-src &apos;none&apos;`).
+                <strong>No user text is transmitted:</strong> All text scanning,
+                CSV parsing, checksum checks, and downloads run in browser
+                memory without calling remote APIs.
+              </p>
+              <p className="mt-1">
+                <strong>Page network requests:</strong> Loading this app fetches
+                only same-origin static files (HTML, JS, CSS, bundled Space
+                Grotesk fonts), enforcing <span className="font-mono">connect-src &apos;none&apos;</span>{' '}
+                and <span className="font-mono">font-src &apos;self&apos;</span>.
+                Verify live traffic directly in browser DevTools → Network.
               </p>
             </div>
 

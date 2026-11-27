@@ -18,10 +18,7 @@ import {
   Trash2,
   Unlock,
 } from 'lucide-react'
-import {
-  runSyntheticBenchmark,
-  type BenchmarkReport,
-} from '../engine/benchmark'
+import { type BenchmarkReport } from '../engine/benchmark'
 import type { OnDeviceAdviceResult } from '../engine/chromeAi'
 import type { PrivacyRiskAssessment } from '../engine/compliance'
 import {
@@ -48,10 +45,12 @@ interface SecurityWorkbenchProps {
   privacyAdvice: OnDeviceAdviceResult
   customRules: CustomRule[]
   customRuleWarning: string | null
+  benchmarkReport: BenchmarkReport | null
+  onRunBenchmark: () => void
   onAddCustomRule: (rule: CustomRule) => void
   onToggleCustomRule: (id: string) => void
   onDeleteCustomRule: (id: string) => void
-  onDownloadAuditJson: () => void
+  onDownloadPrivacyReceipt: () => void
 }
 
 type WorkbenchTab = 'audit' | 'rules' | 'vault' | 'privacy' | 'benchmark'
@@ -89,10 +88,12 @@ export function SecurityWorkbench({
   privacyAdvice,
   customRules,
   customRuleWarning,
+  benchmarkReport,
+  onRunBenchmark,
   onAddCustomRule,
   onToggleCustomRule,
   onDeleteCustomRule,
-  onDownloadAuditJson,
+  onDownloadPrivacyReceipt,
 }: SecurityWorkbenchProps) {
   const [expanded, setExpanded] = useState(false)
   const [activeTab, setActiveTab] = useState<WorkbenchTab>('audit')
@@ -103,8 +104,7 @@ export function SecurityWorkbench({
   const [vaultPassphrase, setVaultPassphrase] = useState('')
   const [vaultStatus, setVaultStatus] = useState<string | null>(null)
   const [auditNonce, setAuditNonce] = useState(0)
-  const [benchmarkReport, setBenchmarkReport] =
-    useState<BenchmarkReport | null>(null)
+  const [inspectedCaseId, setInspectedCaseId] = useState<string | null>(null)
 
   const tabRefs = useRef<Record<WorkbenchTab, HTMLButtonElement | null>>({
     audit: null,
@@ -125,7 +125,7 @@ export function SecurityWorkbench({
     if (tab === 'privacy') {
       setAuditNonce((n) => n + 1)
     } else if (tab === 'benchmark') {
-      setBenchmarkReport(runSyntheticBenchmark())
+      onRunBenchmark()
     }
   }
 
@@ -272,13 +272,13 @@ export function SecurityWorkbench({
               className="text-[var(--text-accent)]"
               aria-hidden="true"
             />
-            <span>Run benchmark</span>
+            <span>Run privacy benchmark</span>
           </button>
 
           <button
             type="button"
-            onClick={onDownloadAuditJson}
-            disabled={!result.originalText || Boolean(result.csvParseError)}
+            onClick={onDownloadPrivacyReceipt}
+            disabled={Boolean(result.csvParseError)}
             className="transition-ui inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--border-strong)] bg-[var(--bg-panel)] px-2.5 text-xs font-medium text-[var(--text-primary)] hover:border-[var(--border-accent)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
           >
             <FileJson
@@ -287,7 +287,7 @@ export function SecurityWorkbench({
               className="text-[var(--text-secondary)]"
               aria-hidden="true"
             />
-            <span>Export audit JSON</span>
+            <span>Download Privacy Receipt</span>
           </button>
         </div>
       </div>
@@ -800,28 +800,30 @@ export function SecurityWorkbench({
                     className="text-[var(--text-safe)]"
                     aria-hidden="true"
                   />
-                  <span>What is processed locally in this browser</span>
+                  <span>What is processed locally (no user text is transmitted)</span>
                 </div>
                 <ul className="list-disc space-y-1.5 pl-4 text-[var(--text-secondary)]">
                   <li>
-                    <span className="text-[var(--text-primary)]">Detection &amp; redaction:</span>{' '}
-                    Regex matching, overlap resolution, Luhn mod-10, and Verhoeff
-                    Aadhaar checksum checks run in browser memory.
+                    <span className="text-[var(--text-primary)]">No user text is transmitted:</span>{' '}
+                    Detection, Luhn/Verhoeff checksums, bundled{' '}
+                    <span className="font-mono">libphonenumber-js/max</span>, and
+                    RE2 Web Worker matching run in local browser memory with zero
+                    remote API calls.
                   </li>
                   <li>
-                    <span className="text-[var(--text-primary)]">Phone &amp; RE2 engines:</span>{' '}
-                    Numbering plans (<span className="font-mono">libphonenumber-js/max</span>)
-                    and linear-time custom RE2 rules (<span className="font-mono">re2js</span>)
-                    are bundled locally with Web Worker isolation.
+                    <span className="text-[var(--text-primary)]">Page asset requests vs. user data:</span>{' '}
+                    Loading the page initially requests same-origin app files
+                    (HTML, JS, CSS, local Space Grotesk fonts); subsequent
+                    sanitization sends no payloads over the network.
                   </li>
                   <li>
-                    <span className="text-[var(--text-primary)]">CSV, Vault &amp; Fonts:</span>{' '}
-                    Strict quote parsing, formula-prefix escaping, PBKDF2 + AES-GCM
-                    encryption, and Space Grotesk fonts operate without remote CDNs.
+                    <span className="text-[var(--text-primary)]">CSV, Vault &amp; Receipts:</span>{' '}
+                    Strict CSV parsing, formula escaping, PBKDF2 + AES-GCM vault
+                    export, and metadata-only Privacy Receipts stay client-side.
                   </li>
                   <li>
                     <span className="text-[var(--text-primary)]">Storage behavior:</span>{' '}
-                    Raw text and PII are never persisted to cookies, IndexedDB,
+                    Raw text and PII are never written to cookies, IndexedDB,
                     or <span className="font-mono">localStorage</span> (only UI theme
                     preference <span className="font-mono">pii-shield-theme</span> is saved).
                   </li>
@@ -837,7 +839,7 @@ export function SecurityWorkbench({
                       className="text-[var(--text-accent)]"
                       aria-hidden="true"
                     />
-                    <span>Browser-observable resource check</span>
+                    <span>Browser-observable page resource check</span>
                   </div>
                   <button
                     type="button"
@@ -852,7 +854,7 @@ export function SecurityWorkbench({
                 <div className="grid grid-cols-2 gap-2 font-mono tabular-nums">
                   <div className="rounded border border-[var(--border-subtle)] bg-[var(--bg-panel)] p-2.5">
                     <div className="text-[11px] text-[var(--text-muted)]">
-                      Same-origin resources
+                      Same-origin page assets
                     </div>
                     <div className="mt-0.5 text-base font-medium text-[var(--text-primary)]">
                       {networkAudit.sameOriginAssetCalls}
@@ -860,7 +862,7 @@ export function SecurityWorkbench({
                   </div>
                   <div className="rounded border border-[var(--border-subtle)] bg-[var(--bg-panel)] p-2.5">
                     <div className="text-[11px] text-[var(--text-muted)]">
-                      Cross-origin resources
+                      Cross-origin entries observed
                     </div>
                     <div
                       className={`mt-0.5 text-base font-medium ${
@@ -885,10 +887,10 @@ export function SecurityWorkbench({
                 )}
 
                 <p className="border-t border-[var(--border-subtle)] pt-2 text-[11px] text-[var(--text-muted)]">
-                  Scope note: Only resources exposed to this tab&apos;s{' '}
+                  What this can verify: only requests visible to this tab&apos;s{' '}
                   <span className="font-mono">performance.getEntriesByType(&apos;resource&apos;)</span>{' '}
-                  API are shown here. For full network verification, inspect
-                  browser DevTools → Network.
+                  API. It distinguishes page asset loading from user data; verify
+                  all live requests independently in DevTools → Network.
                 </p>
               </div>
             </div>
@@ -904,24 +906,24 @@ export function SecurityWorkbench({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h3 className="font-display text-xs font-medium text-[var(--text-primary)]">
-                    Reproducible synthetic accuracy benchmark (100% synthetic test corpus)
+                    Privacy benchmark v2026.1 (100% synthetic test corpus)
                   </h3>
                   <p className="text-xs text-[var(--text-secondary)]">
-                    Verifies built-in detectors, Luhn 13–19 digits, overlaps,
-                    mixed-case PAN, Unicode boundaries, RFC IPv6, phones, strict
-                    CSV, formula escaping, and cross-row pseudonyms locally.
+                    Synthetic regression checks only — results verify known
+                    edge cases and do not prove perfect detection on arbitrary
+                    real-world text. Click any row to inspect expected vs. actual output.
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setBenchmarkReport(runSyntheticBenchmark())}
+                  onClick={onRunBenchmark}
                   className="transition-ui inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--accent-solid)] px-3 text-xs font-medium text-[var(--accent-solid-text)] hover:bg-[var(--accent-solid-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-solid)]"
                 >
                   <FlaskConical size={15} strokeWidth={1.5} aria-hidden="true" />
                   <span>
                     {benchmarkReport
-                      ? 'Re-run synthetic benchmark'
-                      : 'Run synthetic benchmark'}
+                      ? 'Re-run privacy benchmark'
+                      : 'Run privacy benchmark'}
                   </span>
                 </button>
               </div>
@@ -979,43 +981,112 @@ export function SecurityWorkbench({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--border-subtle)]">
-                        {benchmarkReport.cases.map((c) => (
-                          <tr key={c.id} className="text-[var(--text-primary)]">
-                            <td className="px-3 py-2 font-medium">
-                              {c.categoryGroup}
-                            </td>
-                            <td className="px-3 py-2 text-[var(--text-secondary)]">
-                              {c.scenario}
-                            </td>
-                            <td className="px-3 py-2 text-[var(--text-secondary)]">
-                              {c.detail}
-                            </td>
-                            <td className="px-3 py-2 font-mono text-[var(--text-muted)]">
-                              {c.falsePositives} / {c.falseNegatives}
-                            </td>
-                            <td className="px-3 py-2 text-right font-mono text-[var(--text-muted)]">
-                              {c.durationMs} ms
-                            </td>
-                            <td className="px-3 py-2 text-right font-mono">
-                              <span
-                                className={`rounded border px-1.5 py-0.5 text-[11px] ${
-                                  c.passed
-                                    ? 'border-[var(--border-safe)] bg-[var(--bg-protected-well)] text-[var(--text-safe)]'
-                                    : 'border-[#e5484d]/50 bg-[#e5484d]/10 text-[var(--text-danger)]'
-                                }`}
-                              >
-                                {c.passed ? 'PASS' : 'FAIL'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {benchmarkReport.cases.map((c) => {
+                          const isInspected =
+                            inspectedCaseId === c.id ||
+                            (!inspectedCaseId && !c.passed)
+                          return (
+                            <tr
+                              key={c.id}
+                              onClick={() =>
+                                setInspectedCaseId(isInspected ? null : c.id)
+                              }
+                              className={`cursor-pointer transition-ui text-[var(--text-primary)] hover:bg-[var(--bg-table-hover)] ${
+                                isInspected ? 'bg-[var(--bg-active)]/50' : ''
+                              }`}
+                            >
+                              <td className="px-3 py-2 font-medium">
+                                <button
+                                  type="button"
+                                  aria-expanded={isInspected}
+                                  className="text-left focus-visible:outline-none focus-visible:underline"
+                                >
+                                  {c.categoryGroup}
+                                </button>
+                              </td>
+                              <td className="px-3 py-2 text-[var(--text-secondary)]">
+                                {c.scenario}
+                              </td>
+                              <td className="px-3 py-2 text-[var(--text-secondary)]">
+                                {c.detail}
+                              </td>
+                              <td className="px-3 py-2 font-mono text-[var(--text-muted)]">
+                                {c.falsePositives} / {c.falseNegatives}
+                              </td>
+                              <td className="px-3 py-2 text-right font-mono text-[var(--text-muted)]">
+                                {c.durationMs} ms
+                              </td>
+                              <td className="px-3 py-2 text-right font-mono">
+                                <span
+                                  className={`rounded border px-1.5 py-0.5 text-[11px] ${
+                                    c.passed
+                                      ? 'border-[var(--border-safe)] bg-[var(--bg-protected-well)] text-[var(--text-safe)]'
+                                      : 'border-[#e5484d]/50 bg-[#e5484d]/10 text-[var(--text-danger)]'
+                                  }`}
+                                >
+                                  {c.passed ? 'PASS' : 'FAIL'}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
+
+                  {(() => {
+                    const activeCase =
+                      benchmarkReport.cases.find(
+                        (c) => c.id === inspectedCaseId
+                      ) ?? benchmarkReport.cases.find((c) => !c.passed)
+                    if (!activeCase) return null
+                    return (
+                      <div
+                        role="region"
+                        aria-label={`Benchmark case details for ${activeCase.categoryGroup}`}
+                        className="rounded-lg border border-[var(--border-accent)] bg-[var(--bg-recessed)] p-3 text-xs"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-display font-medium text-[var(--text-primary)]">
+                            Case inspection: {activeCase.categoryGroup} ({activeCase.passed ? 'PASS' : 'FAIL'})
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setInspectedCaseId(null)}
+                            className="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+                          >
+                            Close
+                          </button>
+                        </div>
+                        <dl className="mt-2 grid gap-1.5 text-[var(--text-secondary)]">
+                          <div>
+                            <dt className="inline font-medium text-[var(--text-primary)]">
+                              Synthetic input:{' '}
+                            </dt>
+                            <dd className="inline">{activeCase.inputSummary}</dd>
+                          </div>
+                          <div>
+                            <dt className="inline font-medium text-[var(--text-primary)]">
+                              Expected:{' '}
+                            </dt>
+                            <dd className="inline">{activeCase.expectedBehavior}</dd>
+                          </div>
+                          <div>
+                            <dt className="inline font-medium text-[var(--text-primary)]">
+                              Actual:{' '}
+                            </dt>
+                            <dd className="inline font-mono text-[var(--text-accent)]">
+                              {activeCase.actualOutput}
+                            </dd>
+                          </div>
+                        </dl>
+                      </div>
+                    )
+                  })()}
                 </>
               ) : (
                 <p className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-recessed)] p-3 text-xs text-[var(--text-muted)]">
-                  Click &ldquo;Run synthetic benchmark&rdquo; to execute all 9
+                  Click &ldquo;Run privacy benchmark&rdquo; to execute all 10
                   deterministic synthetic accuracy checks locally in this tab.
                 </p>
               )}

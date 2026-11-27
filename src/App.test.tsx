@@ -208,16 +208,24 @@ describe('PII Shield UI & Accessibility', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Privacy status/i }))
     expect(
-      screen.getByText(/What is processed locally in this browser/i)
+      screen.getByText(/What is processed locally \(no user text is transmitted\)/i)
     ).toBeInTheDocument()
     expect(
-      screen.getByText(/Browser-observable resource check/i)
+      screen.getByText(/Browser-observable page resource check/i)
     ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /Run benchmark/i }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /Run privacy benchmark/i })
+    )
     expect(
-      screen.getByText(/Reproducible synthetic accuracy benchmark/i)
+      screen.getByText(/Privacy benchmark v2026\.1/i)
     ).toBeInTheDocument()
-    expect(screen.getByText('9/9')).toBeInTheDocument()
+    expect(screen.getByText('10/10')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /Luhn 13–19/i }))
+    expect(screen.getByText(/Case inspection: Luhn 13–19/i)).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Download Privacy Receipt/i })
+    ).toBeEnabled()
   })
 })

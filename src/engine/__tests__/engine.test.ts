@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { SAMPLE_DATASETS } from '../../data/samples'
 import { runSyntheticBenchmark } from '../benchmark'
+import { buildPrivacyReceipt } from '../receipt'
 import {
   detectOnDeviceAiStatus,
   generateOnDevicePrivacySummary,
@@ -365,11 +366,29 @@ describe('Vault, validators metadata, network audit, and on-device AI helpers', 
 
     const benchmark = runSyntheticBenchmark()
     expect(benchmark.isSynthetic).toBe(true)
-    expect(benchmark.totalCases).toBe(9)
-    expect(benchmark.passedCases).toBe(9)
+    expect(benchmark.benchmarkVersion).toBe('2026.1')
+    expect(benchmark.totalCases).toBe(10)
+    expect(benchmark.passedCases).toBe(10)
     expect(benchmark.failedCases).toBe(0)
     expect(benchmark.falsePositives).toBe(0)
     expect(benchmark.falseNegatives).toBe(0)
+    expect(benchmark.cases.every((c) => c.inputSummary && c.expectedBehavior && c.actualOutput)).toBe(true)
+
+    const receipt = buildPrivacyReceipt({
+      result: res,
+      mode: 'partial',
+      inputFormat: 'txt',
+      benchmarkReport: benchmark,
+    })
+    const receiptJson = JSON.stringify(receipt)
+    expect(receipt.receiptStatement).toMatch(/No original PII/i)
+    expect(receipt.totalEntitiesRedacted).toBe(res.totalEntities)
+    expect(receipt.benchmark.executed).toBe(true)
+    expect(receiptJson).not.toContain('rohan.sharma@fintechcorp.in')
+    expect(receiptJson).not.toContain('4111-1111-1111-1111')
+    expect(receiptJson).not.toContain('ABCDE1234F')
+    expect(receiptJson).not.toContain('4512 8890 1234')
+    expect(receiptJson).not.toContain('98765 43210')
 
     expect(await detectOnDeviceAiStatus()).toBe('unavailable')
     const advice = await generateOnDevicePrivacySummary(

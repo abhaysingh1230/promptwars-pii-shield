@@ -8,6 +8,7 @@ import {
 } from './components/PromptLogModal'
 import { SecurityWorkbench } from './components/SecurityWorkbench'
 import type { SampleDataset } from './data/samples'
+import { runSyntheticBenchmark, type BenchmarkReport } from './engine/benchmark'
 import {
   detectOnDeviceAiStatus,
   generateOnDevicePrivacySummary,
@@ -16,6 +17,7 @@ import {
 import { assessPrivacyRisk } from './engine/compliance'
 import { sanitizeCsvDocument } from './engine/csv'
 import { sanitizeText } from './engine/detector'
+import { buildPrivacyReceipt } from './engine/receipt'
 import {
   DEFAULT_ENABLED_CATEGORIES,
   type CustomRule,
@@ -72,6 +74,8 @@ export function App() {
     useState<OnDeviceAdviceResult | null>(null)
   const [workerResult, setWorkerResult] = useState<SanitizeResult | null>(null)
   const [isWorkerProcessing, setIsWorkerProcessing] = useState(false)
+  const [benchmarkReport, setBenchmarkReport] =
+    useState<BenchmarkReport | null>(null)
   const [theme, setTheme] = useState<'dark' | 'light'>(() =>
     typeof document !== 'undefined' &&
     document.documentElement.classList.contains('light')
@@ -380,31 +384,22 @@ export function App() {
     triggerClientDownload(result.sanitizedText, downloadFileName, mime)
   }
 
-  function handleDownloadAuditJson() {
-    if (!result.originalText || result.csvParseError) return
-    const safeReport = {
-      generatedAt: new Date().toISOString(),
-      executionMode: 'Local browser memory',
-      redactionMode: mode,
+  function handleRunBenchmark() {
+    const report = runSyntheticBenchmark()
+    setBenchmarkReport(report)
+  }
+
+  function handleDownloadPrivacyReceipt() {
+    if (result.csvParseError) return
+    const receipt = buildPrivacyReceipt({
+      result,
+      mode,
       inputFormat,
-      heuristicExposureBefore: complianceAssessment.rawRiskScore,
-      heuristicExposureAfter: complianceAssessment.sanitizedRiskScore,
-      totalEntitiesRedacted: result.totalEntities,
-      countsByCategory: result.countsByCategory,
-      luhnFalsePositivesRejected: result.luhnRejected.map((r) => ({
-        length: r.digits.length,
-        reason: r.reason,
-      })),
-      pseudonymRegistry: result.pseudonyms.map((p) => ({
-        pseudonym: p.pseudonym,
-        category: p.category,
-        maskedReference: p.previewMasked,
-        occurrences: p.occurrences,
-      })),
-    }
+      benchmarkReport,
+    })
     triggerClientDownload(
-      JSON.stringify(safeReport, null, 2),
-      'pii-audit-report.json',
+      JSON.stringify(receipt, null, 2),
+      'pii-privacy-receipt.json',
       'application/json;charset=utf-8'
     )
   }
@@ -485,10 +480,12 @@ export function App() {
           privacyAdvice={activePrivacyAdvice}
           customRules={customRules}
           customRuleWarning={customRuleWarning}
+          benchmarkReport={benchmarkReport}
+          onRunBenchmark={handleRunBenchmark}
           onAddCustomRule={handleAddCustomRule}
           onToggleCustomRule={handleToggleCustomRule}
           onDeleteCustomRule={handleDeleteCustomRule}
-          onDownloadAuditJson={handleDownloadAuditJson}
+          onDownloadPrivacyReceipt={handleDownloadPrivacyReceipt}
         />
       </main>
 
